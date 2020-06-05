@@ -28,4 +28,13 @@ date_format = "Jan 2006"
   date_end = ""
   description = ""
 
+[[item]]
+  organization = "Coursera"
+  organization_url = "https://www.coursera.org"
+  title = "Improving Deep Neural Networks: Hyperparameter tuning, Regularization and Optimization"
+  url = ""
+  certificate_url = "https://www.coursera.org/account/accomplishments/certificate/AEWASS5NWWDY"
+  date_start = "2020-06-01"
+  date_end = ""
+  description = ""
 +++

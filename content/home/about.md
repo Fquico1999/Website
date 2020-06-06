@@ -22,8 +22,8 @@ author = "admin"
   # color = "DimGray"
   
   # Background gradient.
-  gradient_start = "DimGray" 	#DimGray
-  gradient_end = "Gray"			#Gray
+  gradient_start = "#141622" 	#DimGray
+  gradient_end = "#3c3c40"			#Gray
   
   # Background image.
   # image = "background.jpg"  # Name of image in `static/img/`.

@@ -39,11 +39,11 @@ url_video: ""
 #   Otherwise, set `slides = ""`.
 slides: ""
 ---
-```python
-import math
-import numpy as np
-import matplotlib.pyplot as plt
-```
+*You can find this repository [here](https://github.com/Fquico1999/numpy_neural_nets)*
+
+## Overview
+In an attempt to test and further my understanding of the mathematics and logistics behind neural networks and how they operate, I decided to follow what I learned in deeplearning.ai's [Neural Networks and Deep Learning](https://www.coursera.org/learn/neural-networks-deep-learning) course and implement Neural Networks from scratch using only python.
+
 
 ## Outline
 To build a neural net from scratch, we need to go over each block and code those individually. At the end we can combine all of these to create an $L$-layer NN.
@@ -56,6 +56,12 @@ So, the steps we need to take are:
     <li>Implement a back propagation pass</li>
     <li>Update the parameters: Here I'll code in mini Batch Gradient Descent (Which will cover both Stochastic Gradient Descent as well as Batch Gradient Descent), Momentum, RMSProp, and the king of them all, Adam</li>
 </ul>
+
+```python
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+```
 
 ## Activation Functions
 To add non-linearity to the model, activation functions are used. I'll define them now.

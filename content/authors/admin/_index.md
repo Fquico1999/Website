@@ -21,8 +21,8 @@ organizations:
 bio: Interested in solving real-world problems using Machine Learning techniques.
 
 interests:
-- Computer Vision
 - Machine Learning
+- Computer Vision
 - Data Analysis
 
 education:
@@ -67,4 +67,5 @@ user_groups:
 - Visitors
 ---
 
-Help me please
+I'm Francisco, a fourth year Engineering Physics student at UBC who's passionate about tackling real world problems with the exciting potential of Machine Learning. 
+While you're here, check out some of my projects, view my resume, or drop me a line below.

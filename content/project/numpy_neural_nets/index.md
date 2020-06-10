@@ -332,7 +332,7 @@ For ReLU:
 $$\text{ReLU}(z) = \max{(0,z)}$$
 $$\frac{d\text{ReLU}}{dz} = \left\\\{\begin{array}{ll}1 , z > 0\\\\0, z \le 0\end{array}\right.$$
 
-Note that for ReLU, strictly speaking, there is a discontinuity at $z=0$, however since it is incredibly unlikely that the input to the function will every be exactly zero, it's fine to include it in  $z\le0$
+Note that for ReLU, strictly speaking, there is a discontinuity at $z=0$, however since it is incredibly unlikely that the input to the function will ever be exactly zero, it's fine to include it in  $z\le0$
 
 For tanh:
 $$\tanh{(z)} = \frac{e^{z}-e^{-z}}{e^{z}+e^{-z}}$$

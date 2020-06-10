@@ -39,3 +39,5 @@ url_video: ""
 #   Otherwise, set `slides = ""`.
 slides: ""
 ---
+
+{{% staticref "files/eece571t_paper.pdf" %}}See the paper here{{% /staticref %}}

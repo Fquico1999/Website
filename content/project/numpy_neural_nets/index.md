@@ -42,7 +42,7 @@ slides: ""
 *You can find this repository [here](https://github.com/Fquico1999/numpy_neural_nets)*
 
 ## Overview
-In an attempt to test and further my understanding of the mathematics and logistics behind neural networks and how they operate, I decided to follow what I learned in deeplearning.ai's [Neural Networks and Deep Learning](https://www.coursera.org/learn/neural-networks-deep-learning) course and implement Neural Networks from scratch using only python.
+In an attempt to test and further my understanding of the mathematics and logistics behind neural networks and how they operate, I decided to follow what I learned in deeplearning.ai's [Neural Networks and Deep Learning](https://www.coursera.org/learn/neural-networks-deep-learning) course and implement Neural Networks from scratch using only [NumPy](https://numpy.org/).
 
 
 ## Outline

@@ -48,6 +48,7 @@ _*[Click here](#contrib) if you want to skip to my involvement in this team.*_
 The objective of RoboCup@Home is to build a household assistant robot that can perform a variety of tasks, including carrying bags, introducing and seating guests at a party, answering a variety of trivia questions and more. Open Robotics is developing a robot to compete in the 2021 [RoboCup@Home Education Challenge](https://www.robocupathomeedu.org/) while in the meantime, our subteam will compete in the 2020 Competition using the Turtlebot 2 as our hardware platform.
 
 ## The Challenge
+<a name="task1"></a>
 The rules for the 2020 Challenge can be found [here](https://docs.google.com/document/d/1aNPdZDvf9X4HHF13eSge_eHDP9NmC6UDqeYDM9Xyjcg/edit), but they boil down to three specific tasks:
 - Carry My Luggage - Navigation task
 - Find My Mates - Vision task
@@ -63,19 +64,19 @@ Starting at a predifined location, the robot has to find the operator and pick u
 
 *Goal: The robot fetches the information of the party guests for the operator who knows only the names
 of the guests.*
-
+<a name="task3"></a> 
 Knowing only the operator, the robot must identify unknown people and meet those that are waving. Afterwards, it must remember the person and provide a unique description of that person, as well as that person's location, to the operator.
 
 #### Receptionist
 
 *Goal: The robot has to take two arriving guests to the living room, introducing them to each other,
 and offering the just-arrived guest an unoccupied place to sit.*
-
+<a name="contrib"></a>
 Knowing the host of the party, John, the robot must identify unknown guests, request their names and favourite drinks and then point to an empty seat where the guest can sit.
 
-## <a name="contrib"></a> My Contributions
+## My Contributions
 
-My main contributions have been in speech recognition and in handle segmentation, targeting tasks 3 and 1 respectively, however I also worked on facial recognition earlier in the project.
+My main contributions have been in speech recognition and in handle segmentation, targeting [task 3](#task3) and [task 1](#task1) respectively, however I also worked on facial recognition earlier in the project.
 
 ### Speech Recognition
 *You can find this repository [here](https://github.com/UBC-OpenRobotics/SpeechRecognition)*

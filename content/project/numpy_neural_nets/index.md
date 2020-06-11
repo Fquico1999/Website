@@ -44,7 +44,6 @@ slides: ""
 ## Overview
 In an attempt to test and further my understanding of the mathematics and logistics behind neural networks and how they operate, I decided to follow what I learned in deeplearning.ai's [Neural Networks and Deep Learning](https://www.coursera.org/learn/neural-networks-deep-learning) course and implement Neural Networks from scratch using only [NumPy](https://numpy.org/).
 
-
 ## Outline
 To build a neural net from scratch, we need to go over each block and code those individually. At the end we can combine all of these to create an $L$-layer NN.
 
@@ -281,7 +280,7 @@ def forward_prop(X, layer_activations, parameters):
 
 The cost function is the metric that a neural net aims to minimize. I'll implement cross-entropy cost, given by:
 
-$$-\frac{1}{m} \sum\limits_{i = 1}^{m}(y^{(i)}\log\left(a^{[L]\(i)}\right) + (1-y^{(i)})\log\left(1- a^{[L]\(i)}\right))$$
+$$-\frac{1}{m} \sum\limits_{i = 1}^{m} (y^{(i)}\log\left(a^{[L]\(i)}\right) + (1-y^{(i)})\log\left(1- a^{[L]\(i)}\right))$$
 
 Thus, we require a method of computing cost after one pass of forward propagation.
 
@@ -299,7 +298,8 @@ def cost(A_last, Y):
     #Get number of samples, m
     m = Y.shape[1]
     #Compute cross entropy cost
-    cost = -1/m*np.sum(np.multiply(Y, np.log(A_last))+np.multiply(1.-Y, np.log(1.-A_last)))
+    cost = -(1.0/m)*np.sum(Y*np.log(A_last)+(1.-Y)*np.log(1.-A_last))
+        
     #Ensure appropriate dimensions
     cost = np.squeeze(cost)
     
@@ -315,9 +315,7 @@ Just like with forward prop, I will implement two functions. One deals with the 
 For the linear part, we take the derivatives of the parameters, obtaining:
 
 $$ dW^{[l]} = \frac{1}{m} dZ^{[l]} A^{[l-1] T} $$
-
 $$ db^{[l]} = \frac{1}{m} \sum_{i = 1}^{m} dZ^{[l]\(i)}$$
-
 $$ dA^{[l-1]} = W^{[l] T} dZ^{[l]} $$
 
 For the activation part, the backprop requires the gradient of the activation function. As such it depends on the activation used, and I'll define them for each one.
@@ -330,9 +328,9 @@ $$\frac{d\sigma{(z)}}{dz} = \sigma{(z)}(1-\sigma{(z)})$$
 For ReLU:
 
 $$\text{ReLU}(z) = \max{(0,z)}$$
-$$\frac{d\text{ReLU}}{dz} = \left\\\{\begin{array}{ll}1 , z > 0\\\\0, z \le 0\end{array}\right.$$
+$$\frac{d\text{ReLU}}{dz} = \left\\{\begin{array}{ll}1 , z > 0\\\\0, z \le 0\end{array}\right.$$
 
-Note that for ReLU, strictly speaking, there is a discontinuity at $z=0$, however since it is incredibly unlikely that the input to the function will ever be exactly zero, it's fine to include it in  $z\le0$
+Note that for ReLU, strictly speaking, there is a discontinuity at $z=0$, however since it is incredibly unlikely that the input to the function will every be exactly zero, it's fine to include it in  $z\le0$
 
 For tanh:
 $$\tanh{(z)} = \frac{e^{z}-e^{-z}}{e^{z}+e^{-z}}$$
@@ -340,7 +338,7 @@ $$\frac{d\tanh(z)}{dz} = 1-\tanh^2(z)$$
 
 For leaky ReLU:
 $$\text{leaky ReLU}(z) = \max(0.01z, z)$$
-$$\frac{d(\text{leaky Relu}(z))}{dz} = \left\\\{\begin{array}{ll}1 , z > 0\\\\0.01, z \le0\end{array}\right.$$
+$$\frac{d(\text{leaky Relu}(z))}{dz} = \left\\{\begin{array}{ll}1 , z > 0\\\\0.01, z \le0\end{array}\right.$$
 
 
 So, I'll implement functions for each of these units to compute:
@@ -366,12 +364,11 @@ def backward_linear(dZ, cache):
     
     #unpack cache
     A_prev, W, b = cache
-    
     #Get number of samples
     m = A_prev.shape[1]
     
-    dW = 1/m*np.dot(dZ, A_prev.T)
-    db = 1/m*np.sum(dZ, axis=1, keepdims=True)
+    dW = 1./m*np.dot(dZ, A_prev.T)
+    db = 1./m*np.sum(dZ, axis=1, keepdims=True)
     dA_prev = np.dot(W.T, dZ)
     
     assert (dA_prev.shape == A_prev.shape)
@@ -406,7 +403,7 @@ def backward_activation(dA, Z, activation):
         dZ[Z <= 0] = 0
         
     elif activation == "sigmoid":
-        s = 1/(1+np.exp(-Z))
+        s = 1./(1+np.exp(-Z))
         dZ = dA * s * (1-s)
 #         dZ = np.multiply(dA, sigmoid(Z)*(1-sigmoid(Z)))
 
@@ -448,7 +445,7 @@ def backward_prop(AL, Y, caches, layer_activations):
     
     #Initialize backprop, a.k.a derivative of cost with respect to AL
     dAL =  -(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
-    
+
     grads["dA"+str(L)] = dAL
 
     for l in reversed(range(L)):
@@ -456,6 +453,7 @@ def backward_prop(AL, Y, caches, layer_activations):
         linear_cache, activation_cache = current_cache
         dZ = backward_activation(grads["dA"+str(l+1)],activation_cache, layer_activations[l])
         dA_prev, dW, db = backward_linear(dZ, linear_cache)
+
         grads["dA" + str(l)] = dA_prev
         grads["dW" + str(l + 1)] = dW
         grads["db" + str(l + 1)] = db
@@ -812,10 +810,10 @@ def train(X, Y, model_shape, layer_activations, optimizer, initialization_method
         # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
         seed = seed + 1
         minibatches = mini_batches(X, Y, mini_batch_size, seed)
-        
+        #print(np.asarray(minibatches).shape)
         #Get cost over all batchs
         total_cost = 0
-        
+
         for minibatch in minibatches:
 
             # Unpack
@@ -826,13 +824,13 @@ def train(X, Y, model_shape, layer_activations, optimizer, initialization_method
 
             #Get minibatch cost
             cost_batch = cost(AL, minibatch_Y)
-            
+
             #Add to total cost
             total_cost+=cost_batch
 
             # Backward propagation pass
             grads = backward_prop(AL, minibatch_Y, caches, layer_activations)
-
+            
             # Update parameters
             if optimizer == "gd":
                 parameters = update_parameters_gd(parameters, grads, learning_rate=learning_rate)
@@ -852,18 +850,21 @@ def train(X, Y, model_shape, layer_activations, optimizer, initialization_method
                                                                t, learning_rate=learning_rate,
                                                                          beta1=beta1, beta2=beta2,
                                                                          epsilon=epsilon)
-        mean_cost = total_cost / m
+        mean_cost = total_cost / float(mini_batch_size)
         
-        # Print the cost every 100 epoch
-        if print_cost and i % 100 == 0:
+        # Print the cost every 5 epoch
+        if print_cost and i % 5 == 0:
             print ("Cost after epoch %i: %f" %(i, mean_cost))
-        if print_cost and i % 100 == 0:
+        if print_cost and i % 1 == 0:
             costs.append(mean_cost)
                 
     # plot the cost
-    plt.plot(costs)
-    plt.ylabel('Cost')
-    plt.xlabel('Epoch (per 100)')
+    fig, ax = plt.subplots()
+    fig.set_facecolor('w')
+    fig.set_size_inches(12,9)
+    ax.plot(costs)
+    ax.set_ylabel('Cost')
+    ax.set_xlabel('Epoch')
     plt.title("Learning rate = %s, Optimizer = %s" % (learning_rate, optimizer))
     plt.show()
 
@@ -871,24 +872,27 @@ def train(X, Y, model_shape, layer_activations, optimizer, initialization_method
 ```
 
 ## Testing the Model
-Now that the implementation is complete, let's test the model by doing binary classification on two of cifar10's classes
+Now that the implementation is complete, let's test the model by doing binary classification on two handwritten digits from the MNIST dataset.
 
 
 ```python
-from tensorflow.keras.datasets import cifar10
-(X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
+from tensorflow.keras.datasets import mnist
+(X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+
+img_shape = X_train.shape[1:]
 
 print('X_train has shape %s\nY_train has shape %s'%(X_train.shape, Y_train.shape))
 ```
 
-    X_train has shape (50000, 32, 32, 3)
-    Y_train has shape (50000, 1)
+    X_train has shape (60000, 28, 28)
+    Y_train has shape (60000,)
 
 
 
 ```python
-#Define cifar10's classes
-classes = ['airplane','automobile','bird','cat','deer','dog','frog','horse','ship','truck']
+#Convert Y_train and Y_test to (m,1)
+Y_train = Y_train.reshape(Y_train.shape[0],1)
+Y_test = Y_test.reshape(Y_test.shape[0],1)
 
 #Visualize one Entry
 i = np.random.randint(X_train.shape[0])
@@ -897,7 +901,7 @@ fig,ax = plt.subplots()
 fig.set_facecolor('w')
 
 ax.imshow(X_train[i])
-ax.set_title('Label = ' + str(classes[Y_train[i][0]]))
+ax.set_title('Label = ' + str(Y_train[i]))
 plt.show()
 ```
 
@@ -908,37 +912,35 @@ plt.show()
 
 ```python
 #Choose two classes for our classification model
-class_a = 'bird' #Positive Class
-class_b = 'airplane' #Negative Class
+class_a = 3 #Positive Class
+class_b = 7 #Negative Class
 
 #Filter out the dataset to include only images in those classes
-idx_a = classes.index(class_a)
-idx_b = classes.index(class_b)
-idx = np.logical_or(np.squeeze(Y_train) == idx_a, np.squeeze(Y_train) == idx_b)
-X_train, Y_train = X_train[idx], Y_train[idx].astype(np.float64)
+idx = np.logical_or(np.squeeze(Y_train) == class_a, np.squeeze(Y_train) == class_b)
+X_train, Y_train = X_train[idx], Y_train[idx]
 #Assign class_a = 1 and class_b=0
-Y_train[np.where(Y_train == idx_a)] = 1.00
-Y_train[np.where(Y_train == idx_b)] = 0.00
+Y_train[np.where(Y_train == class_a)] = 1.00
+Y_train[np.where(Y_train == class_b)] = 0.00
 
 print('X_train has shape %s\nY_train has shape %s'%(X_train.shape, Y_train.shape))
 
-idx = np.logical_or(np.squeeze(Y_test) == idx_a, np.squeeze(Y_test) == idx_b)
+idx = np.logical_or(np.squeeze(Y_test) == class_a, np.squeeze(Y_test) == class_b)
 X_test, Y_test = X_test[idx], Y_test[idx].astype(np.float64)
 #Assign class_a = 1 and class_b=0
-Y_test[np.where(Y_test == idx_a)] = 1.00
-Y_test[np.where(Y_test == idx_b)] = 0.00
+Y_test[np.where(Y_test == class_a)] = 1.00
+Y_test[np.where(Y_test == class_b)] = 0.00
 print('X_test has shape %s\nY_test has shape %s'%(X_test.shape, Y_test.shape))
 ```
 
-    X_train has shape (10000, 32, 32, 3)
-    Y_train has shape (10000, 1)
-    X_test has shape (2000, 32, 32, 3)
-    Y_test has shape (2000, 1)
+    X_train has shape (12396, 28, 28)
+    Y_train has shape (12396, 1)
+    X_test has shape (2038, 28, 28)
+    Y_test has shape (2038, 1)
 
 
 
 ```python
-#Reshape X_train and X_test into (m, 32*32*3)
+#Reshape X_train and X_test into (m, 28*28)
 X_train_flat = X_train.reshape(X_train.shape[0], -1).T  
 X_test_flat = X_test.reshape(X_test.shape[0], -1).T
 
@@ -950,14 +952,19 @@ print ("X_train's shape: " + str(X_train_norm.shape))
 print ("X_test's shape: " + str(X_test_norm.shape))
 ```
 
-    X_train's shape: (3072, 10000)
-    X_test's shape: (3072, 2000)
+    X_train's shape: (784, 12396)
+    X_test's shape: (784, 2038)
 
 
 ### Defining our Model
-The output is either 1 or 0 so the last layer dimension needs to be 1.
-For the first dimension, that should be $32\times32\times3=3072$.
-Let's start with a three layer model - $3072\times32\times1$ with layer activations ReLU-ReLU-Sigmoid
+I've chosen to create a model to classify either a $3$ or a $7$. Now, let's define a model.
+
+The output is either $1$ or $0$, where $1$ corresponds to a $3$ and $0$ corresponds to a $7$. This means the last layer dimension needs to be $1$.
+For the first dimension, that should be $28\times28\times1=784$, since we're taking the image and stacking each row of pixels ontop of each other (flattening).
+For our hidden layer, I'll choose $n_h=7$
+So we have a three layer model - $784\times7\times1$ with layer activations ReLU-ReLU-Sigmoid.
+
+We can compare the performance of gradient descent versus adam optimization. Let's start with gradient descent.
 
 
 ```python
@@ -968,10 +975,110 @@ n_h = 7
 model_shape = (n_x, n_h, n_y)
 
 layer_activations = ['relu','relu','sigmoid']
-optimizer = 'adam'
+optimizer = 'gd'
 
-learning_rate = 0.001
+learning_rate = 0.0005
 
 parameters = train(X_train_norm,Y_train, model_shape, layer_activations, optimizer,
-                   learning_rate=learning_rate, mini_batch_size=128)
+                   learning_rate=learning_rate, mini_batch_size=128, num_epochs=17)
 ```
+
+    Cost after epoch 0: 0.538137
+    Cost after epoch 5: 0.270331
+    Cost after epoch 10: 0.185126
+    Cost after epoch 15: 0.094295
+
+
+
+![png](./numpy_neural_nets_27_1.png)
+
+
+## Evaluating our Model
+Now that the model has trained, we need some way of assessing the performance of our model. This is done with our testing set: $(X_{\text{test}}, Y_{\text{test}})$
+Essentially, we just need to feed $X_{\text{test}}$ through our model's forward pass, which outputs $A^{[L]}=\hat{Y}$, our predictions. Then we simply compare $\hat{Y}$ with $Y_{\text{test}}$ and evaluate the accuracy as $A=\frac{\text{# correct}}{\text{# total}}$.
+Additionally, I'll return the indices where the model predicted correctly, and where it predicted incorrectly, to visualize the model's shortcomings.
+
+
+```python
+def evaluate(X_test, Y_test, layer_activations, parameters, threshold=0.5):
+    """
+    Evaluates performance of trained model on test set
+    
+    Attributes:
+    X_test -- Test set inputs
+    Y_test -- Test set labels
+    layer_activations -- python list of strings corresponding to activation functions of layer l
+    parameters -- trained parameters W, b
+    
+    Returns:
+    correct -- list of booleans corresponding to the indices of correct predictions
+    incorrect -- list of booleans correspondingin to the indices of incorrect predictions
+    """
+    
+    #Number of test samples
+    m = X_test.shape[1]
+    
+    assert Y_test.shape == (1,m)
+    
+    Y_pred, _ = forward_prop(X_test, layer_activations, parameters)
+    
+    #Threshold
+    Y_pred[Y_pred>threshold]=1.
+    Y_pred[Y_pred<=threshold]=0
+    
+    num_correct = np.sum(Y_pred == Y_test)
+    num_incorrect = m-num_correct
+    print("Accuracy: %f" % (float(num_correct)/m))
+    
+    correct = Y_pred == Y_test
+    incorrect = Y_pred != Y_test
+    
+    return np.squeeze(correct), np.squeeze(incorrect)
+```
+
+
+```python
+#Evaluate
+correct, incorrect = evaluate(X_test_norm, Y_test.T, layer_activations, parameters)
+
+#Get correect predictions
+X_correct = X_test[correct]
+Y_correct = Y_test[correct]
+
+#Get incorrect predictions
+X_incorrect = X_test[incorrect]
+Y_incorrect = Y_test[incorrect]
+
+fig,ax = plt.subplots(3,2)
+fig.set_size_inches(12,18)
+fig.set_facecolor('w')
+
+i_correct = np.random.randint(len(X_correct), size=3)
+i_incorrect = np.random.randint(len(X_incorrect), size=3)
+
+ax[0,0].imshow(X_correct[i_correct[0]])
+ax[0,0].set_title("Correctly predicted Y=%i"%(class_a*Y_test[i_correct[0]] + (1-Y_test[i_correct[0]])*class_b))
+
+ax[0,1].imshow(X_incorrect[i_incorrect[0]])
+ax[0,1].set_title("Incorrectly predicted Y=%i"%(class_a*Y_test[i_correct[0]] + (1-Y_test[i_correct[0]])*class_b))
+
+ax[1,0].imshow(X_correct[i_correct[1]])
+ax[1,0].set_title("Correctly predicted Y=%i"%(class_a*Y_test[i_correct[1]] + (1-Y_test[i_correct[1]])*class_b))
+
+ax[1,1].imshow(X_incorrect[i_incorrect[1]])
+ax[1,1].set_title("Incorrectly predicted Y=%i"%(class_a*Y_test[i_correct[1]] + (1-Y_test[i_correct[1]])*class_b))
+
+ax[2,0].imshow(X_correct[i_correct[2]])
+ax[2,0].set_title("Correctly predicted Y=%i"%(class_a*Y_test[i_correct[2]] + (1-Y_test[i_correct[2]])*class_b))
+
+ax[2,1].imshow(X_incorrect[i_incorrect[2]])
+ax[2,1].set_title("Incorrectly predicted Y=%i"%(class_a*Y_test[i_correct[2]] + (1-Y_test[i_correct[2]])*class_b))
+plt.show()
+```
+
+    Accuracy: 0.956820
+
+
+
+![png](./numpy_neural_nets_30_1.png)
+

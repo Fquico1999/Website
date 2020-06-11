@@ -37,4 +37,14 @@ date_format = "Jan 2006"
   date_start = "2020-06-01"
   date_end = ""
   description = ""
+
+[[item]]
+  organization = "Coursera"
+  organization_url = "https://www.coursera.org"
+  title = "Structuring Machine Learning Projects"
+  url = ""
+  certificate_url = "https://www.coursera.org/account/accomplishments/certificate/4K6DMN4L34JW"
+  date_start = "2020-06-01"
+  date_end = ""
+  description = ""
 +++

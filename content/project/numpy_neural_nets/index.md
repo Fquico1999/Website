@@ -1057,22 +1057,22 @@ i_correct = np.random.randint(len(X_correct), size=3)
 i_incorrect = np.random.randint(len(X_incorrect), size=3)
 
 ax[0,0].imshow(X_correct[i_correct[0]])
-ax[0,0].set_title("Correctly predicted Y=%i"%(class_a*Y_test[i_correct[0]] + (1-Y_test[i_correct[0]])*class_b))
+ax[0,0].set_title("%i: Correctly predicted Y=%i"%(i_correct[0],class_a*Y_correct[i_correct[0]][0] + (1-Y_correct[i_correct[0]][0])*class_b))
 
 ax[0,1].imshow(X_incorrect[i_incorrect[0]])
-ax[0,1].set_title("Incorrectly predicted Y=%i"%(class_a*Y_test[i_correct[0]] + (1-Y_test[i_correct[0]])*class_b))
+ax[0,1].set_title("%i: Incorrectly predicted Y=%i"%(i_incorrect[0],class_b*Y_incorrect[i_incorrect[0]][0] + (1-Y_incorrect[i_incorrect[0]][0])*class_a))
 
 ax[1,0].imshow(X_correct[i_correct[1]])
-ax[1,0].set_title("Correctly predicted Y=%i"%(class_a*Y_test[i_correct[1]] + (1-Y_test[i_correct[1]])*class_b))
+ax[1,0].set_title("%i: Correctly predicted Y=%i"%(i_correct[1],class_a*Y_correct[i_correct[1]][0] + (1-Y_correct[i_correct[1]][0])*class_b))
 
 ax[1,1].imshow(X_incorrect[i_incorrect[1]])
-ax[1,1].set_title("Incorrectly predicted Y=%i"%(class_a*Y_test[i_correct[1]] + (1-Y_test[i_correct[1]])*class_b))
+ax[1,1].set_title("%i: Incorrectly predicted Y=%i"%(i_incorrect[1],class_b*Y_incorrect[i_incorrect[1]][0] + (1-Y_incorrect[i_incorrect[1]][0])*class_a))
 
 ax[2,0].imshow(X_correct[i_correct[2]])
-ax[2,0].set_title("Correctly predicted Y=%i"%(class_a*Y_test[i_correct[2]] + (1-Y_test[i_correct[2]])*class_b))
+ax[2,0].set_title("%i: Correctly predicted Y=%i"%(i_correct[2],class_a*Y_correct[i_correct[2]][0] + (1-Y_correct[i_correct[2]][0])*class_b))
 
 ax[2,1].imshow(X_incorrect[i_incorrect[2]])
-ax[2,1].set_title("Incorrectly predicted Y=%i"%(class_a*Y_test[i_correct[2]] + (1-Y_test[i_correct[2]])*class_b))
+ax[2,1].set_title("%i: Incorrectly predicted Y=%i"%(i_incorrect[2],class_b*Y_incorrect[i_incorrect[2]][0] + (1-Y_incorrect[i_incorrect[2]][0])*class_a))
 plt.show()
 ```
 
@@ -1081,4 +1081,3 @@ plt.show()
 
 
 ![png](./numpy_neural_nets_30_1.png)
-

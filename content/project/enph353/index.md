@@ -147,3 +147,7 @@ To read the positions of each license plate, a region of interest is defined bas
 ## Results
 
 A total of 20 teams competed in this competition. This model was one of four to receive a perfect score of 57 points.
+
+{{< video library="1" src="enph353_outer_ring.mp4" controls="no">}}
+
+The video above shows the robot completing the outer ring. The Gazebo simulation is shown on the right, the scoring server is on the bottom left, and the terminal displaying information about the robot is on the upper left.

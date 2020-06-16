@@ -81,6 +81,58 @@ My main contributions have been in speech recognition and in handle segmentation
 ### Speech Recognition
 *You can find this repository [here](https://github.com/UBC-OpenRobotics/SpeechRecognition)*
 
+Speech recognition is implemented using [PocketSphinx](https://github.com/cmusphinx/pocketsphinx) which is based on [CMUSphinx](https://cmusphinx.github.io/). Which offers two modes of operation - Keyword Spotting (KWS) and Language Model (LM).
+
+#### KWS
+
+Keyword spotting tries to detect specific keywords or phrases, without imposing any type of grammer rules ontop.
+Utilizing keyword spotting requires a .dic file and a .kwslist file.
+
+The dictionary file is a basic text file that contains all the keywords and their phonetic pronunciation, for instance:
+
+```
+BACK	B AE K
+FORWARD	F AO R W ER D
+FULL	F UH L
+```
+
+These files can be generated [here](http://www.speech.cs.cmu.edu/tools/lextool.html) . 
+
+The .kwslist file has each keyword and a certain threshold, more or less corresponding to the length of the word or phrase, as follows:
+
+```
+BACK /1e-9/
+FORWARD /1e-25/
+FULL SPEED /1e-20/
+```
+
+#### LM
+
+Language model mode additionally imposes a grammer. To utilize this mode, .dic, .lm and .gram files are needed.
+
+The dictionary file is the same as in KWS mode.
+
+The .lm file can be generated, along with the .dic file, from a corpus of text, using [this tool](http://www.speech.cs.cmu.edu/tools/lmtool-new.html)
+
+The `generate_corpus.py` script in `SpeechRecognition/asr/resources` sifts through the resource files from robocup's GPSRCmdGenerator and creates a corpus. The .dic and .lm files are generated from it by using the above tool.
+
+Finally, the .gram file specifies the grammer to be imposed. For instance, if the commands we are expecting are always an action followed by an object or person and then a location, it might look like:
+
+```
+public <rule> = <actions> [<objects>] [<names>] [<locations>];
+
+<actions> = MOVE | STOP | GET | GIVE
+
+<objects> = BOWL | GLASS
+
+<names> = JOE | JOEBOB
+
+<locations> = KITCHEN | BEDROOM
+
+```
+
+
+
 ### Handle Segmentation
 *You can find this repository [here](https://github.com/UBC-OpenRobotics/HandleSegmentation)*
 

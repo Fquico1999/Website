@@ -84,4 +84,4 @@ My main contributions have been in speech recognition and in handle segmentation
 ### Handle Segmentation
 *You can find this repository [here](https://github.com/UBC-OpenRobotics/HandleSegmentation)*
 
-{{< video library="1" src="openrobotics_handleseg.mp4" controls="no" >}}
+{{< video library="1" src="openrobotics_handleseg.mp4" controls="" >}}

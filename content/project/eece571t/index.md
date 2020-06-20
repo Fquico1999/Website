@@ -1,7 +1,7 @@
 ---
 # Documentation: https://sourcethemes.com/academic/docs/managing-content/
 
-title: "EECE 571T: Artifact Removal & Biomarker Segmentation"
+title: "Artifact Removal & Biomarker Segmentation"
 summary: "A Project for EECE 571T - Advanced Machine Learning Tools - Where I created a pipeline to detect FOXP3+ biomarkers in follicular lymphoma TMA cores."
 authors: []
 tags: ['Deep Learning']

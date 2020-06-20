@@ -1,8 +1,8 @@
 ---
 # Documentation: https://sourcethemes.com/academic/docs/managing-content/
 
-title: "ENPH 353: Machine Learning Competition"
-summary: "Implemeted YOLO to navigate a simulated course."
+title: "Machine Learning Competition"
+summary: "Implemeted YOLO to navigate a simulated course for ENPH 353."
 authors: []
 tags: ["Deep Learning", "Computer Vision"]
 categories: []

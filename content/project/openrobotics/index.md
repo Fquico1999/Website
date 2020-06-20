@@ -136,4 +136,22 @@ public <rule> = <actions> [<objects>] [<names>] [<locations>];
 ### Handle Segmentation
 *You can find this repository [here](https://github.com/UBC-OpenRobotics/HandleSegmentation)*
 
+To be able to accurately pick up a bag, the robot must be able to detect where its handle is, as well as some information on how wide it is. To accomplish this, I trained a UNet model to segment images of handles.
+
+UNet models are models that take as input an image and output a mask defining a region of interest. Producing data for these models requires labelling regions of interest on a variety of images. For that purpose I used two tools - [LableMe](http://labelme.csail.mit.edu/Release3.0/) or in [MakeSense.ai](https://www.makesense.ai/).
+
+<figure>
+    <img src='history.jpg' alt='training history' width="700"/>
+    <figcaption>Training History for the Handle Segmentation Model</figcaption>
+</figure> 
+
+After training, model inference on the test set was promising.
+
+<figure>
+    <img src='handle_prediction_good.jpg' alt='Test set inference' width="800"/>
+    <figcaption>Model Inference on Test Set: input image on the left, model prediction in the center and ground truth on the right</figcaption>
+</figure> 
+
+Additionally, some processing was done on the mask to obtain candidates for the apex of the handle, and its width. This allowed the model to output where the arm should grasp, like the sequence below. Additional work will be done to integrate the RGBD depth layer to obtain a depth location of the handle.
+
 {{< video library="1" src="openrobotics_handleseg.mp4" controls="" >}}

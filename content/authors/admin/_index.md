@@ -29,7 +29,7 @@ education:
   courses:
   - course: BASc in Engineering Physics
     institution: University of British Columbia
-    year: 2017 - current
+    year: 2017 - 2022
 
 # Social/Academic Networking
 # For available icons, see: https://sourcethemes.com/academic/docs/page-builder/#icons

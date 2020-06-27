@@ -93,3 +93,239 @@ The paper tests the performance of a model trained with $s_{train}=\\{2\\}$ (sca
 VDSR outperforms Bicubic, A+, RFL, SelfEx, and SRCNN (all methods listed) in every regard (PSNR/SSIM/time).
 
 Benchmarks were made on Set5, Set14, B100 and Urban100 datasets.
+
+
+## Implementation
+
+After reading the paper, I decided to implement VDSR in Keras. Please note this is a very quick-and-dirty implementation, it forgoes the adjustable gradient clipping and the learning rate adjustments made in the paper.
+
+I also test the model on one of the classes in the CIFAR10 dataset, namely the frog class.
+
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+
+import tensorflow as tf
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Conv2D, ZeroPadding2D, ReLU, Add, Input
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.backend import resize_images
+```
+
+
+```python
+def vdsr(input_dim, l):
+    
+    #Define input layer
+    LR = Input(shape=input_dim, name='input')
+    
+    #First convolution
+    X = ZeroPadding2D()(LR)
+    X = Conv2D(64,(3,3), name='CONV1')(X)
+    X = ReLU()(X)
+    
+    #Repeat convolution layers untill last layer
+    for i in range(l-2):
+        X = ZeroPadding2D()(X)
+        X = Conv2D(64, (3,3), name='CONV%i' % (i+2))(X)
+        X = ReLU()(X)
+    
+    #Final layer, output is residual image
+    X = ZeroPadding2D()(X)
+    residual = Conv2D(1, (3,3), name='CONV%i' % l)(X)
+    
+    #Add residual to LR
+    out = Add()([LR, residual])
+    
+    return Model(LR, out)
+        
+```
+
+
+```python
+#Load the cifar10 dataset
+(x_train, y_train), (x_test, y_test) = cifar10.load_data()
+classes = ['airplane','automobile','bird','cat','deer','dog','frog', 'horse','ship','truck']
+
+#Example image
+i = np.random.randint(x_train.shape[0])
+
+plt.imshow(x_train[i])
+plt.axis('off')
+plt.title(classes[y_train[i][0]], color='w')
+plt.show()
+```
+
+
+![png](./VDSR_2_0.png)
+
+
+
+```python
+#I'll use just the frog classes
+train_idx = (y_train == [classes.index('frog')])
+
+y_train = x_train[np.squeeze(train_idx)]
+
+test_idx = (y_test == [classes.index('frog')])
+
+y_test = x_test[np.squeeze(test_idx)]
+
+print("Training set ground truth has shape: " + str(y_train.shape))
+
+print("Test set ground truth has shape: " + str(y_test.shape))
+```
+
+    Training set ground truth has shape: (5000, 32, 32, 3)
+    Test set ground truth has shape: (1000, 32, 32, 3)
+
+
+
+```python
+w , h = y_train.shape[1:-1]
+scale_factor = 2
+
+x_train = []
+for img in y_train:
+    img_re = cv2.resize(img, dsize=(w/scale_factor, h/scale_factor), interpolation=cv2.INTER_CUBIC)
+    x_train.append(img_re)
+
+x_train = np.asarray(x_train)
+
+x_test = []
+for img in y_test:
+    img_re = cv2.resize(img, dsize=(w/scale_factor, h/scale_factor), interpolation=cv2.INTER_CUBIC)
+    #Normalize
+    x_test.append(img_re)
+
+x_test = np.asarray(x_test)
+
+print("Training set has shape: " + str(x_train.shape))
+
+print("Test set has shape: " + str(x_test.shape))
+```
+
+    Training set has shape: (5000, 16, 16, 3)
+    Test set has shape: (1000, 16, 16, 3)
+
+
+
+```python
+#Example sample and label
+i = np.random.randint(x_train.shape[0])
+
+fig, ax = plt.subplots(1,2)
+fig.set_size_inches(12,6)
+fig.set_facecolor('w')
+
+ax[0].imshow(x_train[i])
+ax[0].set_title('X', fontsize=14)
+ax[0].axis('off')
+
+ax[1].imshow(y_train[i])
+ax[1].set_title('Y', fontsize=14)
+ax[1].axis('off')
+
+plt.axis('off')
+plt.show()
+```
+
+
+![png](./VDSR_5_0.png)
+
+
+
+```python
+#Define the model
+input_dim = y_train.shape[1:]
+L = 20
+model = vdsr(input_dim, L)
+model.compile(optimizer=Adam(learning_rate=0.000075,beta_1=0.9), loss='mse', metrics=['accuracy'])
+```
+
+
+```python
+#Need to upscale input
+x_train_scaled = resize_images(x_train/255.0, scale_factor, scale_factor,'channels_last', interpolation='bilinear')
+x_test_scaled = resize_images(x_test/255.0, scale_factor, scale_factor,'channels_last', interpolation='bilinear')
+
+
+history = model.fit(x_train_scaled, y_train/255., batch_size=64, epochs=10, validation_data=(x_test_scaled, y_test/255.0))
+```
+
+    Train on 5000 samples, validate on 1000 samples
+    Epoch 1/10
+    5000/5000 [==============================] - 138s 28ms/sample - loss: 0.0030 - accuracy: 0.9441 - val_loss: 0.0028 - val_accuracy: 0.9451
+    Epoch 2/10
+    5000/5000 [==============================] - 138s 28ms/sample - loss: 0.0027 - accuracy: 0.9441 - val_loss: 0.0027 - val_accuracy: 0.9451
+    Epoch 3/10
+    5000/5000 [==============================] - 139s 28ms/sample - loss: 0.0026 - accuracy: 0.9441 - val_loss: 0.0026 - val_accuracy: 0.9451
+    Epoch 4/10
+    5000/5000 [==============================] - 133s 27ms/sample - loss: 0.0026 - accuracy: 0.9441 - val_loss: 0.0026 - val_accuracy: 0.9451
+    Epoch 5/10
+    5000/5000 [==============================] - 135s 27ms/sample - loss: 0.0025 - accuracy: 0.9441 - val_loss: 0.0026 - val_accuracy: 0.9451
+    Epoch 6/10
+    5000/5000 [==============================] - 142s 28ms/sample - loss: 0.0025 - accuracy: 0.9441 - val_loss: 0.0025 - val_accuracy: 0.9451
+    Epoch 7/10
+    5000/5000 [==============================] - 132s 26ms/sample - loss: 0.0025 - accuracy: 0.9441 - val_loss: 0.0025 - val_accuracy: 0.9451
+    Epoch 8/10
+    5000/5000 [==============================] - 140s 28ms/sample - loss: 0.0025 - accuracy: 0.9441 - val_loss: 0.0025 - val_accuracy: 0.9451
+    Epoch 9/10
+    5000/5000 [==============================] - 133s 27ms/sample - loss: 0.0025 - accuracy: 0.9441 - val_loss: 0.0025 - val_accuracy: 0.9451
+    Epoch 10/10
+    5000/5000 [==============================] - 130s 26ms/sample - loss: 0.0024 - accuracy: 0.9441 - val_loss: 0.0025 - val_accuracy: 0.9451
+
+
+
+```python
+fig, ax = plt.subplots()
+fig.set_size_inches(12,12)
+fig.set_facecolor('w')
+
+ax.plot(history.history['loss'], label='loss')
+ax.plot(history.history['val_loss'], label='val_loss')
+plt.legend()
+plt.show()
+```
+
+
+![png](./VDSR_8_0.png)
+
+
+
+```python
+#Example sample and label
+i = np.random.randint(x_train.shape[0])
+
+x_i = resize_images(np.expand_dims(x_train[i],axis=0), scale_factor, scale_factor,'channels_last', interpolation='bilinear')
+
+y_hat = model.predict(x_i/255.0)[0]
+
+fig, ax = plt.subplots(1,3)
+fig.set_size_inches(12,6)
+fig.set_facecolor('w')
+
+ax[0].imshow(x_train[i])
+ax[0].set_title('X', fontsize=14)
+ax[0].axis('off')
+
+ax[1].imshow(y_train[i])
+ax[1].set_title('Y', fontsize=14)
+ax[1].axis('off')
+
+ax[2].imshow(y_hat)
+ax[2].set_title('Y_hat', fontsize=14)
+ax[2].axis('off')
+
+plt.axis('off')
+plt.show()
+```
+
+
+![png](./VDSR_9_0.png)
+
+
+The model seems to work well and converges quickly, even for a fixed learning rate. Of note is that the CIFAR10 images are of size $32\times 32 \times 3$, so to test super resolution with a scale factor of 2, the input images are resized from $16 \times 16 \times 3$. Compared to Set5's $256 \times 256 \times 3$ images used in the paper, this test isn't reflective of VDSR's ability to infer detail.

@@ -61,5 +61,5 @@ user_groups:
 - Visitors
 ---
 
-I'm Francisco, a fourth year Engineering Physics student at UBC who's passionate about tackling real world problems with the exciting potential of Machine Learning. 
-While you're here, check out some of my projects, view my resume, or drop me a line below.
+I'm Francisco, a 4th year Engineering Physics student at UBC who is passionate about tackling real world problems with the exciting potential of Machine Learning. 
+While you're here, check out some of my projects, view my resumé, or drop me a line below.

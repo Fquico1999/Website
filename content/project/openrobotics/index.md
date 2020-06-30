@@ -40,6 +40,9 @@ url_video: ""
 slides: ""
 ---
 
+_*The results for the Robocup@Home Education 2020 Online Competition are out! Check out our standing [below.](#result_2020)*_
+
+
 _*[Click here](#contrib) if you want to skip to my involvement in this team.*_
 
 ## Overview
@@ -154,4 +157,20 @@ After training, model inference on the test set was promising.
 
 Additionally, some processing was done on the mask to obtain candidates for the apex of the handle, and its width. This allowed the model to output where the arm should grasp, like the sequence below. Additional work will be done to integrate the RGBD depth layer to obtain a depth location of the handle.
 
+<a name="result_2020"></a>
 {{< video library="1" src="openrobotics_handleseg.mp4" controls="" >}}
+
+
+## 2020 RoboCup@Home Education Online Challenge
+
+We (the software subteam) participated in the 2020 Online Challenge since it is the team's goal to develop our own hardware platform for 2021. Meanwhile, we put our software progress to the test on the Turtlebot2 platform.
+
+Out of 8 finalists, we ended up in second place in the open category (meaning open hardware category), and first place in people's choice.
+
+<figure>
+    <img src='openrobotics_finals_open_plat.png' alt='open_category_finish' width="700"/>
+</figure> 
+
+<figure>
+    <img src='openrobotics_finals_peoples_choice.png' alt='peoples_choice_finish' width="700"/>
+</figure> 

@@ -47,4 +47,14 @@ date_format = "Jan 2006"
   date_start = "2020-06-01"
   date_end = ""
   description = ""
+
+  [[item]]
+  organization = "Coursera"
+  organization_url = "https://www.coursera.org"
+  title = "[Convolutional Neural Networks](https://www.coursera.org/learn/convolutional-neural-networks)"
+  url = ""
+  certificate_url = "https://www.coursera.org/account/accomplishments/certificate/4YZXF5CP729H"
+  date_start = "2020-07-01"
+  date_end = ""
+  description = ""
 +++

@@ -18,6 +18,22 @@ date_format = "January 2006"
 #   Leave `date_end` empty if it's your current employer.
 #   Begin/end multi-line descriptions with 3 quotes `"""`.
 [[experience]]
+  title = "Machine Learning Intern"
+  company = "Longervision Technology"
+  company_url = ""
+  location = "Surrey, BC"
+  date_start = "2020-07-01"
+  date_end = ""
+  description = """
+  * Cleaned, labelled, and augmented client image dataset. Trained YOLOv3 model
+with high accuracy for train platform passenger/uniformed worked detection.
+Implemented model in NVIDIA Jetson Nano, ensuring fast inference time.
+  * Participated in [OpenCV’s Spatial AI competition](https://opencv.org/opencv-spatial-ai-competition/) – proposed application of
+OpenCV and Intel’s stereo camera with Neural Inference for low-cost
+speedometer and vehicle classifier.
+  """
+
+[[experience]]
   title = "Computational Plasma Engineer & Programmer"
   company = "General Fusion Inc."
   company_url = "https://generalfusion.com/ "

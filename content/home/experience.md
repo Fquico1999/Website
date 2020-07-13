@@ -25,10 +25,10 @@ date_format = "January 2006"
   date_start = "2020-07-01"
   date_end = ""
   description = """
-  * Cleaned, labelled, and augmented client image dataset. Trained YOLOv3 model
-with high accuracy for train platform passenger/uniformed worked detection.
-Implemented model in NVIDIA Jetson Nano, ensuring fast inference time.
-  * Participated in [OpenCV’s Spatial AI competition](https://opencv.org/opencv-spatial-ai-competition/) – proposed application of
+  * Cleaning, labelling, and augmenting client image dataset. Training YOLOv3 model
+with high accuracy for train platform passenger/uniformed worker detection.
+Implementing model in NVIDIA Jetson Nano, ensuring fast inference time.
+  * Participating in [OpenCV’s Spatial AI competition](https://opencv.org/opencv-spatial-ai-competition/) – proposed application of
 OpenCV and Intel’s stereo camera with Neural Inference for low-cost
 speedometer and vehicle classifier.
   """

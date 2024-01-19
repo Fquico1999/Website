@@ -1,0 +1,916 @@
+<!DOCTYPE html><html lang="en-us" >
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="generator" content="Source Themes Academic 4.8.0">
+
+  
+
+  
+  
+  
+  
+  
+    
+    
+    
+  
+  
+
+  <meta name="author" content="Francisco Farinha">
+
+  
+  
+  
+    
+  
+  <meta name="description" content="Creating artistic images using Deep Neural Networks">
+
+  
+  <link rel="alternate" hreflang="en-us" href="https://Fquico1999.github.io/post/nst/">
+
+  
+
+
+  
+  
+  
+  <meta name="theme-color" content="hsl(339, 90%, 68%)">
+  
+
+  
+  
+  
+  <script src="/js/mathjax-config.js"></script>
+  
+
+  
+  
+  
+  
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.8.6/css/academicons.min.css" integrity="sha256-uFVgMKfistnJAfoCUQigIl+JfUaP47GrRKjf6CTPVmw=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.0-1/css/all.min.css" integrity="sha256-4w9DunooKSr3MFXHXWyFER38WmPdm361bQS/2KUWZbU=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css" integrity="sha256-Vzbj7sDDS/woiFS3uNKo8eIuni59rjyNGtXfstRzStA=" crossorigin="anonymous">
+
+    
+    
+    
+      
+    
+    
+      
+      
+        
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/github.min.css" crossorigin="anonymous" title="hl-light" disabled>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/dracula.min.css" crossorigin="anonymous" title="hl-dark">
+        
+      
+    
+
+    
+
+    
+
+    
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lazysizes/5.1.2/lazysizes.min.js" integrity="sha256-Md1qLToewPeKjfAHU1zyPwOutccPAm5tahnaw7Osw0A=" crossorigin="anonymous" async></script>
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" integrity="" crossorigin="anonymous" async></script>
+      
+    
+      
+
+      
+      
+
+      
+    
+
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700%7CRoboto:400,400italic,700%7CRoboto+Mono&display=swap">
+  
+
+  
+  
+  
+  
+  <link rel="stylesheet" href="/css/academic.css">
+
+  
+
+
+
+
+  
+
+
+  
+  
+
+  
+
+  <link rel="manifest" href="/index.webmanifest">
+  <link rel="icon" type="image/png" href="/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_32x32_fill_lanczos_center_3.png">
+  <link rel="apple-touch-icon" type="image/png" href="/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_192x192_fill_lanczos_center_3.png">
+
+  <link rel="canonical" href="https://Fquico1999.github.io/post/nst/">
+
+  
+  
+  
+  
+  
+  
+  
+    
+    
+  
+  
+  <meta property="twitter:card" content="summary">
+  
+  <meta property="og:site_name" content="Francisco Farinha">
+  <meta property="og:url" content="https://Fquico1999.github.io/post/nst/">
+  <meta property="og:title" content="A Neural Algorithm of Artistic Style | Francisco Farinha">
+  <meta property="og:description" content="Creating artistic images using Deep Neural Networks"><meta property="og:image" content="https://Fquico1999.github.io/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_512x512_fill_lanczos_center_3.png">
+  <meta property="twitter:image" content="https://Fquico1999.github.io/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_512x512_fill_lanczos_center_3.png"><meta property="og:locale" content="en-us">
+  
+    
+      <meta property="article:published_time" content="2020-07-02T22:51:27-07:00">
+    
+    <meta property="article:modified_time" content="2020-07-02T22:51:27-07:00">
+  
+
+  
+
+
+    
+
+
+
+
+
+
+  
+
+
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://Fquico1999.github.io/post/nst/"
+  },
+  "headline": "A Neural Algorithm of Artistic Style",
+  
+  "datePublished": "2020-07-02T22:51:27-07:00",
+  "dateModified": "2020-07-02T22:51:27-07:00",
+  
+  "author": {
+    "@type": "Person",
+    "name": "Leon A. Gatys"
+  },
+  
+  "publisher": {
+    "@type": "Organization",
+    "name": "Francisco Farinha",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://Fquico1999.github.io/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_192x192_fill_lanczos_center_3.png"
+    }
+  },
+  "description": "Creating artistic images using Deep Neural Networks"
+}
+</script>
+
+  
+
+  
+
+
+  
+
+
+  
+
+
+
+
+
+  <title>A Neural Algorithm of Artistic Style | Francisco Farinha</title>
+
+</head>
+
+<body id="top" data-spy="scroll" data-offset="70" data-target="#TableOfContents" class="dark">
+
+  <aside class="search-results" id="search">
+  <div class="container">
+    <section class="search-header">
+
+      <div class="row no-gutters justify-content-between mb-3">
+        <div class="col-6">
+          <h1>Search</h1>
+        </div>
+        <div class="col-6 col-search-close">
+          <a class="js-search" href="#"><i class="fas fa-times-circle text-muted" aria-hidden="true"></i></a>
+        </div>
+      </div>
+
+      <div id="search-box">
+        
+        <input name="q" id="search-query" placeholder="Search..." autocapitalize="off"
+        autocomplete="off" autocorrect="off" spellcheck="false" type="search">
+        
+      </div>
+
+    </section>
+    <section class="section-search-results">
+
+      <div id="search-hits">
+        
+      </div>
+
+    </section>
+  </div>
+</aside>
+
+
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-expand-lg navbar-light compensate-for-scrollbar" id="navbar-main">
+  <div class="container">
+
+    
+    <div class="d-none d-lg-inline-flex">
+      <a class="navbar-brand" href="/">Francisco Farinha</a>
+    </div>
+    
+
+    
+    <button type="button" class="navbar-toggler" data-toggle="collapse"
+            data-target="#navbar-content" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+    <span><i class="fas fa-bars"></i></span>
+    </button>
+    
+
+    
+    <div class="navbar-brand-mobile-wrapper d-inline-flex d-lg-none">
+      <a class="navbar-brand" href="/">Francisco Farinha</a>
+    </div>
+    
+
+    
+    
+    <div class="navbar-collapse main-menu-item collapse justify-content-center" id="navbar-content">
+
+      
+      <ul class="navbar-nav d-md-inline-flex">
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#about"><span>Home</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#projects"><span>Projects</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#contact"><span>Contact</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/files/cv.pdf"><span>CV</span></a>
+        </li>
+
+        
+        
+
+      
+
+        
+      </ul>
+    </div>
+
+    <ul class="nav-icons navbar-nav flex-row ml-auto d-flex pl-md-2">
+      
+      <li class="nav-item">
+        <a class="nav-link js-search" href="#" aria-label="Search"><i class="fas fa-search" aria-hidden="true"></i></a>
+      </li>
+      
+
+      
+      <li class="nav-item dropdown theme-dropdown">
+        <a href="#" class="nav-link js-theme-selector" data-toggle="dropdown" aria-haspopup="true">
+          <i class="fas fa-palette" aria-hidden="true"></i>
+        </a>
+        <div class="dropdown-menu">
+          <a href="#" class="dropdown-item js-set-theme-light">
+            <span>Light</span>
+          </a>
+          <a href="#" class="dropdown-item js-set-theme-dark">
+            <span>Dark</span>
+          </a>
+          <a href="#" class="dropdown-item js-set-theme-auto">
+            <span>Automatic</span>
+          </a>
+        </div>
+      </li>
+      
+
+      
+
+    </ul>
+
+  </div>
+</nav>
+
+
+  <article class="article">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+  
+  
+<div class="article-container pt-3">
+  <h1>A Neural Algorithm of Artistic Style</h1>
+
+  
+
+  
+    
+
+
+<div class="article-metadata">
+
+  
+  
+  
+  
+  <div>
+    
+
+  
+  <span>Leon A. Gatys</span>, <span>Alexander S. Ecker</span>, <span>Matthias Bethge</span>
+  </div>
+  
+  
+
+  
+  <span class="article-date">
+    
+    
+      
+    
+    Jul 2, 2020
+  </span>
+  
+
+  
+
+  
+  <span class="middot-divider"></span>
+  <span class="article-reading-time">
+    5 min read
+  </span>
+  
+
+  
+  
+  
+
+  
+  
+
+</div>
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+</div>
+
+
+
+  <div class="article-container">
+
+    <div class="article-style">
+      <p>Find the paper 
+<a href="https://arxiv.org/abs/1508.06576" target="_blank" rel="noopener">here</a></p>
+<p>Convolutional Neural Networks (CNN) are powerful in image processing related tasks. They consist of layers of small computational units that process visual information in a heirachical fashion. Each layer is essentially a collection of image filters that extract a certain feature from the input image.</p>
+<p>When trained on tasks such as image detection, CNNs develop image representations that are increasingly explicit along the processing path. In other words, the input image is successively transformed into representations that increasingly care about content of the image instead of local pixel values.</p>
+<p>The paper refers to feature respnses in higher layers of the network as the content representation.</p>
+<p>To obtain a meaningful representation of the style of an input image, the authors utilize a texture feature space. Essentially, by taking the filter responses in each layer of the networks and taking correlations between them over the channels in the feature maps, an objective method of texture evaluation is constructed.</p>
+<p>Reconstructions from style features produce versions of the input that are texturized and capture its general appearance in color and local structure. The size and complexity increases along the hierarchy, due to increasing feature complexity and receptive field size. This representation is denoted as style representation.</p>
+<p>The key finding in the paper is that content and style representations in CNNs are separable.</p>
+<p>Novel images can be synthesized by finding an image that can simultaneously match the content representation of an input photo as well as the style representation of a respective piece of art.</p>
+<p>The most visually appealing images are created by matching the style representation including up to the highest layers in the network, whereas style can be defined more locally by only including a lower number of layers.</p>
+<p>When synthesizing style and content, both must be included. As such, the loss function that is minimized includes components for both content and style with hyperparameters that allow to tweak emphasis on either.</p>
+<p>The authors derived these content and style representations from feature responses of DNNs trained on object recognition.</p>
+<p>Rendering a photo in the style of a certain artwork is approached by the computer vision field of non-photorealistic rendering. These methods relied on non-parametric techniques that manipulate the pixel representations directly. DNNs, on the other hand, manipulate feature spaces that represent style and content.</p>
+<h2 id="methods">Methods</h2>
+<p>The paper&rsquo;s results were based on the VGG-Network, VGG19 I believe.</p>
+<p>The authors disregard the fully connected layers, and only focus on the 16 CONV and 5 POOL layers to build the feature space.</p>
+<p>Instead of Max Pooling, the authors found that Average Pooling worked better - it improves gradient flow and the results become more visually appealing.</p>
+<p>Let the input image be denoted as $\vec{x}$.</p>
+<p>Each layer of the VGG Network beign considered has $N_l$ filters of size $M_l = W_l \times H_l$.</p>
+<p>Responses of layer $l$ are stored in $F^{l}$, where $F^{l} \in \mathcal{R}^{N_l \times M_l}$. We index $F$ as $F^{l}_{ij}$ which is the activation of filter $i$ at position $j$ in $M^l$ of layer $l$.</p>
+<p>Gradient Descent is performed on a white noise image to find one that matches the feature responses of the original image.</p>
+<p>Given original image, $\vec{p}$, and generated image, $\vec{x}$,  with feature representations at layer $l$ given by $P^{l}$ and $F^{l}$ respectively, the content loss is the squared-error loss between the feature representations:</p>
+<p>$$\mathcal{L}_{content}(\vec{p},\vec{x},l) = \frac{1}{2}\sum_{ij}(F^{l}_{ij} - P^{l}_{ij})^2$$</p>
+<p>So, the derivative of the loss with respect to the activations is:</p>
+<p>$$\frac{\partial \mathcal{L}_{content}}{\partial  F^{l}_{ij}} = \left\{
+\begin{array}{ll}
+(F^l-P^l)_{ij} &amp; \text{if} F^{l}_{ij} &gt; 0\\
+0 &amp; \text{if} F^{l}_{ij} &lt; 0
+\end{array}
+\right.$$</p>
+<p>Then, we change $\vec{x}$ untill it generates the same response in a certain layer as $\vec{p}$.</p>
+<p>The style representation is built by taking the correlations between different filter responses. These correlations are given by Gram matrix $G^{l} \in \mathcal{R}^{N_l \times N_l}$. Here, $G^{l}_{ij}$ is the inner product between feature maps $i,j$ in layer $l$:</p>
+<p>$$G^{l}_{ij} = \sum_{k} F^{l}_{ik}F^{l}_{jk}$$</p>
+<p>Once more, we use Gradient Descent from a white noise image to find another image that matches the style representation. Like the content representation, we minimize the mean-squared distance between entries of the Gram matrix of the original image and the Gram matrix of the generated image.</p>
+<p>Given original image, $\vec{a}$, and generated image, $\vec{x}$, with style representations at layer $l$ given by $A^{l}$ and $G^{l}$ respectively, the loss from a single layer $l$ is:</p>
+<p>$$E_l = \frac{1}{4N^{2}_{l}M^{2}_{l}} \sum_{ij}(G^{l}_{ij}-A^{l}_{ij})^2$$</p>
+<p>With total loss:</p>
+<p>$$\mathcal{L}_{style}(\vec{a},\vec{x}) = \sum^{L}_{l=0} w_lE_l$$</p>
+<p>with $w_l$ weighting factors of the contribution of each layer. The derivatice of $E_l$ with respect to activations in layer $l$ becomes:</p>
+<p>$$\frac{\partial E_l}{\partial  F^{l}_{ij}} = \left\{
+\begin{array}{ll}
+\frac{1}{N_l^2 M_l^2}((F^l)^T (G^l-A^l))_{ji} &amp; \text{if} F^{l}_{ij} &gt; 0\\
+0 &amp; \text{if} F^{l}_{ij} &lt; 0
+\end{array}
+\right.$$
+To generate images that mix the content of a photo with the style of a painting, we need to minimize the distance of a white noise image to the content representation of the photo in a layer as well as the style representtion of the paining over a number of layers. Given photograph $\vec{p}$ and artwork $\vec{a}$, the loss function becomes:</p>
+<p>$$\mathcal{L}_{total}(\vec{p}, \vec{a}, \vec{x}) =  \alpha \mathcal{L}_{content}(\vec{p}, \vec{x}) + \beta \mathcal{L}_{style}(\vec{a},\vec{x})$$</p>
+<p>With $\alpha, \beta$ weighting factors to control content and style reconstruction respectively.</p>
+<p>In the paper, content representation was matched for layer <code>conv4_2</code> and the style representation used layers <code>conv1_1</code>, <code>conv2_1</code>, <code>conv3_1</code>, <code>conv4_1</code>, and <code>conv5_1</code>, with $w_l = \frac{1}{5}$ in those layers and $w_l=0$ in all others. In general, $w_l = \frac{1}{N_a}$ with $N_a$ being the number of active layers.</p>
+<p>Additionally, the paper uses $\frac{\alpha}{\beta} \in \{1\times 10^{-3},1 \times 10^{-4}\}$</p>
+
+    </div>
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+    
+    
+
+
+
+
+
+  
+
+
+  
+    
+    
+
+
+
+
+
+  
+
+
+  
+    
+    
+
+
+
+
+
+  
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+</article>
+
+      
+
+    
+    
+    
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.4/imagesloaded.pkgd.min.js" integrity="sha256-lqvxZrPLtfffUl2G/e7szqSvPBILGbwmsGE1MKlOi0Q=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.isotope/3.0.6/isotope.pkgd.min.js" integrity="sha256-CBrpuqrMhXwcLLUd5tvQ4euBHCdh7wGlDfNz8vbu/iI=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js" integrity="sha256-yt2kYMy0w8AbtF89WXb2P1rfjcP/HTHLT7097U8Y5b8=" crossorigin="anonymous"></script>
+
+      
+
+      
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js" integrity="sha256-eOgo0OtLL4cdq7RdwRUiGKLX9XsIJ7nGhWEKbohmVAQ=" crossorigin="anonymous"></script>
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/languages/r.min.js"></script>
+        
+      
+
+    
+
+    
+    
+
+    
+    
+    <script>const code_highlighting = true;</script>
+    
+
+    
+    
+    <script>const isSiteThemeDark = true;</script>
+    
+
+    
+    
+    
+    
+    
+    
+    <script>
+      const search_config = {"indexURI":"/index.json","minLength":1,"threshold":0.3};
+      const i18n = {"no_results":"No results found","placeholder":"Search...","results":"results found"};
+      const content_type = {
+        'post': "Posts",
+        'project': "Projects",
+        'publication' : "Publications",
+        'talk' : "Talks",
+        'slides' : "Slides"
+        };
+    </script>
+    
+
+    
+    
+
+    
+    
+    <script id="search-hit-fuse-template" type="text/x-template">
+      <div class="search-hit" id="summary-{{key}}">
+      <div class="search-hit-content">
+        <div class="search-hit-name">
+          <a href="{{relpermalink}}">{{title}}</a>
+          <div class="article-metadata search-hit-type">{{type}}</div>
+          <p class="search-hit-description">{{snippet}}</p>
+        </div>
+      </div>
+      </div>
+    </script>
+    
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.2.1/fuse.min.js" integrity="sha256-VzgmKYmhsGNNN4Ph1kMW+BjoYJM2jV5i4IlFoeZA9XI=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/jquery.mark.min.js" integrity="sha256-4HLtjeVgH0eIB3aZ9mLYF6E8oU5chNdjU6p6rrXpl9U=" crossorigin="anonymous"></script>
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      
+    
+    
+    
+    
+    <script src="/js/academic.min.8e6bf9dce3dc44c1896a95d36724b780.js"></script>
+
+    
+
+
+
+
+
+
+  
+  
+  <div class="container">
+    <footer class="site-footer">
+  
+
+  <p class="powered-by">
+    ©2024 Francisco Farinha | 
+<a href="https://sourcethemes.com/academic/" target="_blank" rel="noopener">Academic</a> | 
+<a href="https://gohugo.io" target="_blank" rel="noopener">Hugo</a>
+  </p>
+
+  
+  
+
+
+
+
+
+
+  
+</footer>
+
+  </div>
+  
+
+  
+<div id="modal" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cite</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <pre><code class="tex hljs"></code></pre>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-primary my-1 js-copy-cite" href="#" target="_blank">
+          <i class="fas fa-copy"></i> Copy
+        </a>
+        <a class="btn btn-outline-primary my-1 js-download-cite" href="#" target="_blank">
+          <i class="fas fa-download"></i> Download
+        </a>
+        <div id="modal-error"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1065 @@
+<!DOCTYPE html><html lang="en-us" >
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="generator" content="Source Themes Academic 4.8.0">
+
+  
+
+  
+  
+  
+  
+  
+    
+    
+    
+  
+  
+
+  <meta name="author" content="Francisco Farinha">
+
+  
+  
+  
+    
+  
+  <meta name="description" content="Developing Software to compete in the RoboCup@Home competition.">
+
+  
+  <link rel="alternate" hreflang="en-us" href="https://Fquico1999.github.io/project/openrobotics/">
+
+  
+
+
+  
+  
+  
+  <meta name="theme-color" content="hsl(339, 90%, 68%)">
+  
+
+  
+  
+  
+  <script src="/js/mathjax-config.js"></script>
+  
+
+  
+  
+  
+  
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/academicons/1.8.6/css/academicons.min.css" integrity="sha256-uFVgMKfistnJAfoCUQigIl+JfUaP47GrRKjf6CTPVmw=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.0-1/css/all.min.css" integrity="sha256-4w9DunooKSr3MFXHXWyFER38WmPdm361bQS/2KUWZbU=" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.css" integrity="sha256-Vzbj7sDDS/woiFS3uNKo8eIuni59rjyNGtXfstRzStA=" crossorigin="anonymous">
+
+    
+    
+    
+      
+    
+    
+      
+      
+        
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/github.min.css" crossorigin="anonymous" title="hl-light" disabled>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/styles/dracula.min.css" crossorigin="anonymous" title="hl-dark">
+        
+      
+    
+
+    
+
+    
+
+    
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lazysizes/5.1.2/lazysizes.min.js" integrity="sha256-Md1qLToewPeKjfAHU1zyPwOutccPAm5tahnaw7Osw0A=" crossorigin="anonymous" async></script>
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+    
+      
+
+      
+      
+
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" integrity="" crossorigin="anonymous" async></script>
+      
+    
+      
+
+      
+      
+
+      
+    
+
+  
+
+  
+  
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,700%7CRoboto:400,400italic,700%7CRoboto+Mono&display=swap">
+  
+
+  
+  
+  
+  
+  <link rel="stylesheet" href="/css/academic.css">
+
+  
+
+
+
+
+  
+
+
+  
+  
+
+  
+
+  <link rel="manifest" href="/index.webmanifest">
+  <link rel="icon" type="image/png" href="/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_32x32_fill_lanczos_center_3.png">
+  <link rel="apple-touch-icon" type="image/png" href="/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_192x192_fill_lanczos_center_3.png">
+
+  <link rel="canonical" href="https://Fquico1999.github.io/project/openrobotics/">
+
+  
+  
+  
+  
+  
+  
+  
+    
+  
+  
+  <meta property="twitter:card" content="summary_large_image">
+  
+  <meta property="og:site_name" content="Francisco Farinha">
+  <meta property="og:url" content="https://Fquico1999.github.io/project/openrobotics/">
+  <meta property="og:title" content="UBC Open Robotics | Francisco Farinha">
+  <meta property="og:description" content="Developing Software to compete in the RoboCup@Home competition."><meta property="og:image" content="https://Fquico1999.github.io/project/openrobotics/featured.jpg">
+  <meta property="twitter:image" content="https://Fquico1999.github.io/project/openrobotics/featured.jpg"><meta property="og:locale" content="en-us">
+  
+    
+      <meta property="article:published_time" content="2020-06-05T15:18:22-07:00">
+    
+    <meta property="article:modified_time" content="2020-06-05T15:18:22-07:00">
+  
+
+  
+
+
+    
+
+
+
+
+
+
+
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://Fquico1999.github.io/project/openrobotics/"
+  },
+  "headline": "UBC Open Robotics",
+  
+  "image": [
+    "https://Fquico1999.github.io/project/openrobotics/featured.jpg"
+  ],
+  
+  "datePublished": "2020-06-05T15:18:22-07:00",
+  "dateModified": "2020-06-05T15:18:22-07:00",
+  
+  "author": {
+    "@type": "Person",
+    "name": "Francisco Farinha"
+  },
+  
+  "publisher": {
+    "@type": "Organization",
+    "name": "Francisco Farinha",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://Fquico1999.github.io/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_192x192_fill_lanczos_center_3.png"
+    }
+  },
+  "description": "Developing Software to compete in the RoboCup@Home competition."
+}
+</script>
+
+  
+
+  
+
+
+  
+
+
+  
+
+
+
+
+
+  <title>UBC Open Robotics | Francisco Farinha</title>
+
+</head>
+
+<body id="top" data-spy="scroll" data-offset="70" data-target="#TableOfContents" class="dark">
+
+  <aside class="search-results" id="search">
+  <div class="container">
+    <section class="search-header">
+
+      <div class="row no-gutters justify-content-between mb-3">
+        <div class="col-6">
+          <h1>Search</h1>
+        </div>
+        <div class="col-6 col-search-close">
+          <a class="js-search" href="#"><i class="fas fa-times-circle text-muted" aria-hidden="true"></i></a>
+        </div>
+      </div>
+
+      <div id="search-box">
+        
+        <input name="q" id="search-query" placeholder="Search..." autocapitalize="off"
+        autocomplete="off" autocorrect="off" spellcheck="false" type="search">
+        
+      </div>
+
+    </section>
+    <section class="section-search-results">
+
+      <div id="search-hits">
+        
+      </div>
+
+    </section>
+  </div>
+</aside>
+
+
+  
+
+
+
+
+
+
+
+<nav class="navbar navbar-expand-lg navbar-light compensate-for-scrollbar" id="navbar-main">
+  <div class="container">
+
+    
+    <div class="d-none d-lg-inline-flex">
+      <a class="navbar-brand" href="/">Francisco Farinha</a>
+    </div>
+    
+
+    
+    <button type="button" class="navbar-toggler" data-toggle="collapse"
+            data-target="#navbar-content" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+    <span><i class="fas fa-bars"></i></span>
+    </button>
+    
+
+    
+    <div class="navbar-brand-mobile-wrapper d-inline-flex d-lg-none">
+      <a class="navbar-brand" href="/">Francisco Farinha</a>
+    </div>
+    
+
+    
+    
+    <div class="navbar-collapse main-menu-item collapse justify-content-center" id="navbar-content">
+
+      
+      <ul class="navbar-nav d-md-inline-flex">
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#about"><span>Home</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#projects"><span>Projects</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+          
+          
+          
+            
+          
+          
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/#contact"><span>Contact</span></a>
+        </li>
+
+        
+        
+
+        
+
+        
+        
+        
+          
+        
+
+        
+        
+        
+        
+        
+        
+
+        <li class="nav-item">
+          <a class="nav-link " href="/files/cv.pdf"><span>CV</span></a>
+        </li>
+
+        
+        
+
+      
+
+        
+      </ul>
+    </div>
+
+    <ul class="nav-icons navbar-nav flex-row ml-auto d-flex pl-md-2">
+      
+      <li class="nav-item">
+        <a class="nav-link js-search" href="#" aria-label="Search"><i class="fas fa-search" aria-hidden="true"></i></a>
+      </li>
+      
+
+      
+      <li class="nav-item dropdown theme-dropdown">
+        <a href="#" class="nav-link js-theme-selector" data-toggle="dropdown" aria-haspopup="true">
+          <i class="fas fa-palette" aria-hidden="true"></i>
+        </a>
+        <div class="dropdown-menu">
+          <a href="#" class="dropdown-item js-set-theme-light">
+            <span>Light</span>
+          </a>
+          <a href="#" class="dropdown-item js-set-theme-dark">
+            <span>Dark</span>
+          </a>
+          <a href="#" class="dropdown-item js-set-theme-auto">
+            <span>Automatic</span>
+          </a>
+        </div>
+      </li>
+      
+
+      
+
+    </ul>
+
+  </div>
+</nav>
+
+
+  <article class="article article-project">
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+  
+  
+<div class="article-container pt-3">
+  <h1>UBC Open Robotics</h1>
+
+  
+
+  
+    
+
+
+<div class="article-metadata">
+
+  
+  
+
+  
+  <span class="article-date">
+    
+    
+      
+    
+    Jun 5, 2020
+  </span>
+  
+
+  
+
+  
+
+  
+  
+  
+
+  
+  
+
+</div>
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+</div>
+
+
+
+  <div class="article-container">
+
+    <div class="article-style">
+      <p><em><em>The results for the Robocup@Home Education 2020 Online Competition are out! Check out our standing 
+<a href="#result_2020">below.</a></em></em></p>
+<p><em><em>
+<a href="#contrib">Click here</a> if you want to skip to my involvement in this team.</em></em></p>
+<h2 id="overview">Overview</h2>
+<p>
+<a href="http://www.ubcopenrobotics.ca/" target="_blank" rel="noopener">UBC Open Robotics</a> is a student team comprised of 60 students split into three subteams - ArtBot, PianoBot, and Robocup@Home. I am a member of the software team in the RoboCup@Home subteam.</p>
+<p>The objective of RoboCup@Home is to build a household assistant robot that can perform a variety of tasks, including carrying bags, introducing and seating guests at a party, answering a variety of trivia questions and more. Open Robotics is developing a robot to compete in the 2021 
+<a href="https://www.robocupathomeedu.org/" target="_blank" rel="noopener">RoboCup@Home Education Challenge</a> while in the meantime, our subteam will compete in the 2020 Competition using the Turtlebot 2 as our hardware platform.</p>
+<h2 id="the-challenge">The Challenge</h2>
+<p><a name="task1"></a>
+The rules for the 2020 Challenge can be found 
+<a href="https://docs.google.com/document/d/1aNPdZDvf9X4HHF13eSge_eHDP9NmC6UDqeYDM9Xyjcg/edit" target="_blank" rel="noopener">here</a>, but they boil down to three specific tasks:</p>
+<ul>
+<li>Carry My Luggage - Navigation task</li>
+<li>Find My Mates - Vision task</li>
+<li>Receptionist - Speech task</li>
+</ul>
+<h4 id="carry-my-luggage">Carry My Luggage</h4>
+<p><em>Goal: The robot helps the operator to carry a bag to the car parked outside</em></p>
+<p>Starting at a predifined location, the robot has to find the operator and pick up the bag the operator is pointing to. After picking up the bag, the robot needs to indicate that it is ready to follow and then it must follow the operator while facing 4 obstacles along the way (crowd, small object, difficult to see 3D object, small blocked area).</p>
+<h4 id="find-my-mates">Find My Mates</h4>
+<p><em>Goal: The robot fetches the information of the party guests for the operator who knows only the names
+of the guests.</em>
+<a name="task3"></a>
+Knowing only the operator, the robot must identify unknown people and meet those that are waving. Afterwards, it must remember the person and provide a unique description of that person, as well as that person&rsquo;s location, to the operator.</p>
+<h4 id="receptionist">Receptionist</h4>
+<p><em>Goal: The robot has to take two arriving guests to the living room, introducing them to each other,
+and offering the just-arrived guest an unoccupied place to sit.</em>
+<a name="contrib"></a>
+Knowing the host of the party, John, the robot must identify unknown guests, request their names and favourite drinks and then point to an empty seat where the guest can sit.</p>
+<h2 id="my-contributions">My Contributions</h2>
+<p>My main contributions have been in speech recognition and in handle segmentation, targeting 
+<a href="#task3">task 3</a> and 
+<a href="#task1">task 1</a> respectively, however I also worked on facial recognition earlier in the project.</p>
+<h3 id="speech-recognition">Speech Recognition</h3>
+<p><em>You can find this repository 
+<a href="https://github.com/UBC-OpenRobotics/SpeechRecognition" target="_blank" rel="noopener">here</a></em></p>
+<p>Speech recognition is implemented using 
+<a href="https://github.com/cmusphinx/pocketsphinx" target="_blank" rel="noopener">PocketSphinx</a> which is based on 
+<a href="https://cmusphinx.github.io/" target="_blank" rel="noopener">CMUSphinx</a>. Which offers two modes of operation - Keyword Spotting (KWS) and Language Model (LM).</p>
+<h4 id="kws">KWS</h4>
+<p>Keyword spotting tries to detect specific keywords or phrases, without imposing any type of grammer rules ontop.
+Utilizing keyword spotting requires a .dic file and a .kwslist file.</p>
+<p>The dictionary file is a basic text file that contains all the keywords and their phonetic pronunciation, for instance:</p>
+<pre><code>BACK	B AE K
+FORWARD	F AO R W ER D
+FULL	F UH L
+</code></pre>
+<p>These files can be generated 
+<a href="http://www.speech.cs.cmu.edu/tools/lextool.html" target="_blank" rel="noopener">here</a> .</p>
+<p>The .kwslist file has each keyword and a certain threshold, more or less corresponding to the length of the word or phrase, as follows:</p>
+<pre><code>BACK /1e-9/
+FORWARD /1e-25/
+FULL SPEED /1e-20/
+</code></pre>
+<h4 id="lm">LM</h4>
+<p>Language model mode additionally imposes a grammer. To utilize this mode, .dic, .lm and .gram files are needed.</p>
+<p>The dictionary file is the same as in KWS mode.</p>
+<p>The .lm file can be generated, along with the .dic file, from a corpus of text, using 
+<a href="http://www.speech.cs.cmu.edu/tools/lmtool-new.html" target="_blank" rel="noopener">this tool</a></p>
+<p>The <code>generate_corpus.py</code> script in <code>SpeechRecognition/asr/resources</code> sifts through the resource files from robocup&rsquo;s GPSRCmdGenerator and creates a corpus. The .dic and .lm files are generated from it by using the above tool.</p>
+<p>Finally, the .gram file specifies the grammer to be imposed. For instance, if the commands we are expecting are always an action followed by an object or person and then a location, it might look like:</p>
+<pre><code>public &lt;rule&gt; = &lt;actions&gt; [&lt;objects&gt;] [&lt;names&gt;] [&lt;locations&gt;];
+
+&lt;actions&gt; = MOVE | STOP | GET | GIVE
+
+&lt;objects&gt; = BOWL | GLASS
+
+&lt;names&gt; = JOE | JOEBOB
+
+&lt;locations&gt; = KITCHEN | BEDROOM
+
+</code></pre>
+<h3 id="handle-segmentation">Handle Segmentation</h3>
+<p><em>You can find this repository 
+<a href="https://github.com/UBC-OpenRobotics/HandleSegmentation" target="_blank" rel="noopener">here</a></em></p>
+<p>To be able to accurately pick up a bag, the robot must be able to detect where its handle is, as well as some information on how wide it is. To accomplish this, I trained a UNet model to segment images of handles.</p>
+<p>UNet models are models that take as input an image and output a mask defining a region of interest. Producing data for these models requires labelling regions of interest on a variety of images. For that purpose I used two tools - 
+<a href="http://labelme.csail.mit.edu/Release3.0/" target="_blank" rel="noopener">LableMe</a> or in 
+<a href="https://www.makesense.ai/" target="_blank" rel="noopener">MakeSense.ai</a>.</p>
+<figure>
+    <img src='history.jpg' alt='training history' width="700"/>
+    <figcaption>Training History for the Handle Segmentation Model</figcaption>
+</figure> 
+<p>After training, model inference on the test set was promising.</p>
+<figure>
+    <img src='handle_prediction_good.jpg' alt='Test set inference' width="800"/>
+    <figcaption>Model Inference on Test Set: input image on the left, model prediction in the center and ground truth on the right</figcaption>
+</figure> 
+<p>Additionally, some processing was done on the mask to obtain candidates for the apex of the handle, and its width. This allowed the model to output where the arm should grasp, like the sequence below. Additional work will be done to integrate the RGBD depth layer to obtain a depth location of the handle.</p>
+<p><a name="result_2020"></a>
+
+
+
+
+  
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+<video autoplay loop >
+  <source src="/img/openrobotics_handleseg.mp4" type="video/mp4">
+</video></p>
+<h2 id="2020-robocuphome-education-online-challenge">2020 RoboCup@Home Education Online Challenge</h2>
+<p>We (the software subteam) participated in the 2020 Online Challenge since it is the team&rsquo;s goal to develop our own hardware platform for 2021. Meanwhile, we put our software progress to the test on the Turtlebot2 platform.</p>
+<p>Out of 8 finalists, we ended up in second place in the open category (meaning open hardware category), and first place in people&rsquo;s choice.</p>
+<figure>
+    <img src='openrobotics_finals_open_plat.png' alt='open_category_finish' width="700"/>
+</figure> 
+<figure>
+    <img src='openrobotics_finals_peoples_choice.png' alt='peoples_choice_finish' width="700"/>
+</figure> 
+    </div>
+
+    
+
+
+
+
+
+
+<div class="article-tags">
+  
+  <a class="badge badge-light" href="/tag/deep-learning/">Deep Learning</a>
+  
+  <a class="badge badge-light" href="/tag/computer-vision/">Computer Vision</a>
+  
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+
+
+
+
+
+  
+    
+    
+    
+      
+    
+    
+    
+    <div class="media author-card content-widget-hr">
+      
+        
+        <img class="avatar mr-3 avatar-circle" src="/author/francisco-farinha/avatar_hu018d595a7f8c06b17e4d5128358561ce_542344_270x270_fill_q90_lanczos_center.jpg" alt="Francisco Farinha">
+      
+
+      <div class="media-body">
+        <h5 class="card-title"><a href="https://Fquico1999.github.io/">Francisco Farinha</a></h5>
+        <h6 class="card-subtitle">Data Scientist @ BlackBerry</h6>
+        <p class="card-text">Interested in solving real-world problems using Machine Learning techniques.</p>
+        <ul class="network-icon" aria-hidden="true">
+  
+    
+    
+    
+      
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="/#contact" >
+        <i class="fas fa-envelope"></i>
+      </a>
+    </li>
+  
+    
+    
+    
+      
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="https://www.linkedin.com/in/francisco-f/" target="_blank" rel="noopener">
+        <i class="fab fa-linkedin"></i>
+      </a>
+    </li>
+  
+    
+    
+    
+      
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="https://github.com/Fquico1999" target="_blank" rel="noopener">
+        <i class="fab fa-github"></i>
+      </a>
+    </li>
+  
+    
+    
+    
+    
+    
+    
+    
+      
+    
+    <li>
+      <a href="/files/cv.pdf" >
+        <i class="ai ai-cv"></i>
+      </a>
+    </li>
+  
+</ul>
+
+      </div>
+    </div>
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <div class="project-related-pages content-widget-hr">
+      
+      
+
+      
+      
+      
+
+      
+      
+      
+
+      
+      
+      
+    </div>
+  </div>
+</article>
+
+      
+
+    
+    
+    
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.imagesloaded/4.1.4/imagesloaded.pkgd.min.js" integrity="sha256-lqvxZrPLtfffUl2G/e7szqSvPBILGbwmsGE1MKlOi0Q=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.isotope/3.0.6/isotope.pkgd.min.js" integrity="sha256-CBrpuqrMhXwcLLUd5tvQ4euBHCdh7wGlDfNz8vbu/iI=" crossorigin="anonymous"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/fancybox/3.5.7/jquery.fancybox.min.js" integrity="sha256-yt2kYMy0w8AbtF89WXb2P1rfjcP/HTHLT7097U8Y5b8=" crossorigin="anonymous"></script>
+
+      
+
+      
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/highlight.min.js" integrity="sha256-eOgo0OtLL4cdq7RdwRUiGKLX9XsIJ7nGhWEKbohmVAQ=" crossorigin="anonymous"></script>
+        
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.1/languages/r.min.js"></script>
+        
+      
+
+    
+
+    
+    
+
+    
+    
+    <script>const code_highlighting = true;</script>
+    
+
+    
+    
+    <script>const isSiteThemeDark = true;</script>
+    
+
+    
+    
+    
+    
+    
+    
+    <script>
+      const search_config = {"indexURI":"/index.json","minLength":1,"threshold":0.3};
+      const i18n = {"no_results":"No results found","placeholder":"Search...","results":"results found"};
+      const content_type = {
+        'post': "Posts",
+        'project': "Projects",
+        'publication' : "Publications",
+        'talk' : "Talks",
+        'slides' : "Slides"
+        };
+    </script>
+    
+
+    
+    
+
+    
+    
+    <script id="search-hit-fuse-template" type="text/x-template">
+      <div class="search-hit" id="summary-{{key}}">
+      <div class="search-hit-content">
+        <div class="search-hit-name">
+          <a href="{{relpermalink}}">{{title}}</a>
+          <div class="article-metadata search-hit-type">{{type}}</div>
+          <p class="search-hit-description">{{snippet}}</p>
+        </div>
+      </div>
+      </div>
+    </script>
+    
+
+    
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/3.2.1/fuse.min.js" integrity="sha256-VzgmKYmhsGNNN4Ph1kMW+BjoYJM2jV5i4IlFoeZA9XI=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/jquery.mark.min.js" integrity="sha256-4HLtjeVgH0eIB3aZ9mLYF6E8oU5chNdjU6p6rrXpl9U=" crossorigin="anonymous"></script>
+    
+
+    
+    
+
+    
+    
+
+    
+    
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+      
+    
+    
+    
+    
+    <script src="/js/academic.min.8e6bf9dce3dc44c1896a95d36724b780.js"></script>
+
+    
+
+
+
+
+
+
+  
+  
+  <div class="container">
+    <footer class="site-footer">
+  
+
+  <p class="powered-by">
+    ©2024 Francisco Farinha | 
+<a href="https://sourcethemes.com/academic/" target="_blank" rel="noopener">Academic</a> | 
+<a href="https://gohugo.io" target="_blank" rel="noopener">Hugo</a>
+  </p>
+
+  
+  
+
+
+
+
+
+
+  
+</footer>
+
+  </div>
+  
+
+  
+<div id="modal" class="modal fade" role="dialog">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Cite</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <pre><code class="tex hljs"></code></pre>
+      </div>
+      <div class="modal-footer">
+        <a class="btn btn-outline-primary my-1 js-copy-cite" href="#" target="_blank">
+          <i class="fas fa-copy"></i> Copy
+        </a>
+        <a class="btn btn-outline-primary my-1 js-download-cite" href="#" target="_blank">
+          <i class="fas fa-download"></i> Download
+        </a>
+        <div id="modal-error"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

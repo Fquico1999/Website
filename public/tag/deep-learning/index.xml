@@ -1,0 +1,2187 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Deep Learning | Francisco Farinha</title>
+    <link>https://Fquico1999.github.io/tag/deep-learning/</link>
+      <atom:link href="https://Fquico1999.github.io/tag/deep-learning/index.xml" rel="self" type="application/rss+xml" />
+    <description>Deep Learning</description>
+    <generator>Source Themes Academic (https://sourcethemes.com/academic/)</generator><language>en-us</language><copyright>©2024 Francisco Farinha | [Academic](https://sourcethemes.com/academic/) | [Hugo](https://gohugo.io)</copyright><lastBuildDate>Fri, 26 Jun 2020 13:40:17 -0700</lastBuildDate>
+    <image>
+      <url>https://Fquico1999.github.io/images/icon_hu59cf491a3a20dd4a23becc20dcebe21e_42632_512x512_fill_lanczos_center_3.png</url>
+      <title>Deep Learning</title>
+      <link>https://Fquico1999.github.io/tag/deep-learning/</link>
+    </image>
+    
+    <item>
+      <title>GAN Who</title>
+      <link>https://Fquico1999.github.io/project/ganwho/</link>
+      <pubDate>Fri, 26 Jun 2020 13:40:17 -0700</pubDate>
+      <guid>https://Fquico1999.github.io/project/ganwho/</guid>
+      <description>&lt;p&gt;&lt;em&gt;You can find this repository 
+&lt;a href=&#34;https://github.com/Fquico1999/GANWho&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;here&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;h2 id=&#34;overview&#34;&gt;Overview&lt;/h2&gt;
+&lt;p&gt;The base concept of a GAN in this scenario is that we have two seperate neural networks which are trained differently.&lt;/p&gt;
+&lt;p&gt;There is a Discriminator and a Generator network with different inputs and outputs.&lt;/p&gt;
+&lt;p&gt;The discriminator classifies images as real or not real (In other words, as coming from the generated distribution or the real data distribution). In this case, the input is an image, and the output is a probability of the input belonging to the real dataset distribution.&lt;/p&gt;
+&lt;p&gt;The generator takes in random seeds and will output an image.&lt;/p&gt;
+&lt;p&gt;Training the Generator
+Both networks need to be implemented at the same time, but the weights must be updated at different times. To train the generator, we freeze the discriminator weights. We input just random seeds to the generator and the output images are fed into the discriminator. Which will try and evaluate whether they are generated or not. So the labels for this step are all $y_i=1.0$. Backpropagation trains the generator to produce images that better &amp;ldquo;fool&amp;rdquo; the discriminator&lt;/p&gt;
+&lt;p&gt;Training the Discriminator
+We freeze the weights of the Generator, we generate images with the generator, and we take the same number of images from the input data distribution. These are fed into the discriminator which outputs probabilities of being from the input dataset. Thus backpropagation will train the discriminator to be able to distinguish real from generated images.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;import tensorflow as tf
+tf.enable_eager_execution()
+from tensorflow.keras.losses import BinaryCrossentropy
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.models import Sequential, Model, load_model
+from tensorflow.keras.layers import Conv2D, LeakyReLU, Dropout, ZeroPadding2D, ReLU
+from tensorflow.keras.layers import BatchNormalization, Flatten, Dense, UpSampling2D
+from tensorflow.keras.layers import Reshape, Activation, Conv2DTranspose
+from tensorflow.keras.layers import AveragePooling2D, Input, Add
+from tensorflow.keras.backend import resize_images
+
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
+sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+# config = tf.ConfigProto()
+# config.gpu_options.allow_growth = True
+# session = tf.Session(config=config)
+
+import numpy as np
+import csv
+import time
+import os
+import matplotlib.pyplot as plt
+from PIL import Image
+from tqdm import tqdm
+import dask.array as da
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;defining-the-models&#34;&gt;Defining the Models&lt;/h2&gt;
+&lt;p&gt;We have two models to define, the generator and the discriminator.&lt;/p&gt;
+&lt;p&gt;Intuitively, if the output we want to generate are images, then the discriminator will be a ConvNet, since it needs to extract features from an image to output a single numerical prediction. So it&amp;rsquo;s no surprise our model takes the image and applies a series of convolutions. To prevent overfitting, we also apply Dropout to our layers.&lt;/p&gt;
+&lt;p&gt;On the other hand, the generator takes in a vector seed and generates an image. So intuitively it must be composed of a series of upsamplings, which it is.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def get_discriminator(image_shape):
+    model = Sequential()
+
+    model.add(Conv2D(32, kernel_size=3, strides=2, input_shape=image_shape, 
+                     padding=&amp;quot;same&amp;quot;))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(Dropout(0.25))
+    model.add(Conv2D(64, kernel_size=3, strides=2, padding=&amp;quot;same&amp;quot;))
+    model.add(ZeroPadding2D(padding=((0,1),(0,1))))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(Dropout(0.25))
+    model.add(Conv2D(128, kernel_size=3, strides=2, padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(Dropout(0.25))
+    model.add(Conv2D(256, kernel_size=3, strides=1, padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(Dropout(0.25))
+    model.add(Conv2D(512, kernel_size=3, strides=1, padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(Dropout(0.25))
+    model.add(Flatten())
+    model.add(Dense(1, activation=&#39;sigmoid&#39;))
+
+    return model
+
+def get_generator(seed_size):
+    model = Sequential()
+
+    model.add(Dense(4*4*256,activation=&amp;quot;relu&amp;quot;,input_dim=seed_size))
+    model.add(Reshape((4,4,256)))
+
+    model.add(UpSampling2D())
+    model.add(Conv2D(256,kernel_size=3,padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(UpSampling2D())
+    model.add(Conv2D(256,kernel_size=3,padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+    
+    # Output resolution, additional upsampling
+    model.add(UpSampling2D())
+    model.add(Conv2D(128,kernel_size=3,padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    model.add(UpSampling2D(size=(2,2)))
+    model.add(Conv2D(128,kernel_size=3,padding=&amp;quot;same&amp;quot;))
+    model.add(BatchNormalization(momentum=0.8))
+    model.add(LeakyReLU(alpha=0.2))
+
+    # Final CNN layer
+    model.add(Conv2D(3,kernel_size=3,padding=&amp;quot;same&amp;quot;))
+    model.add(Activation(&amp;quot;tanh&amp;quot;))
+
+    return model
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;helper-functions&#34;&gt;Helper Functions&lt;/h2&gt;
+&lt;p&gt;Here I&amp;rsquo;ll define functions that help with training the GAN.&lt;/p&gt;
+&lt;p&gt;First, we need to define the loss function for both the discriminator and the generator since these are trained differently.&lt;/p&gt;
+&lt;p&gt;I&amp;rsquo;ll also define a helper function to save progress images of the training&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def loss_generator(Y_hat):
+    &amp;quot;&amp;quot;&amp;quot;
+    Implements Binary Crossentropy Loss for the Generator
+    
+    Arguments:
+    Y_hat -- Discriminator Predictions
+    
+    Returns:
+    loss -- BinaryCrossentropy loss for the generator
+    &amp;quot;&amp;quot;&amp;quot;
+    #Recall the generator is trained on y_hats of only one
+    Y = tf.ones_like(Y_hat)
+    loss = BinaryCrossentropy(from_logits=True)(Y, Y_hat)
+    return loss
+
+def loss_discriminator(Y_hat_real, Y_hat_gen):
+    &amp;quot;&amp;quot;&amp;quot;
+    Implements BinaryCrossentropy loss for the Discriminator
+    
+    Arguments:
+    Y_hat_real -- Predictions on real distribution samples
+    Y_hat_gen -- Predictions on generated samples
+    
+    Returns:
+    total -- Combined Real and Generated loss of Discriminator
+    &amp;quot;&amp;quot;&amp;quot;
+    entropy  = BinaryCrossentropy(from_logits=True)
+    Y_real = tf.ones_like(Y_hat_real)
+    Y_gen = tf.zeros_like(Y_hat_gen)
+    loss_real = entropy(Y_real, Y_hat_real)
+    loss_gen =  entropy(Y_gen, Y_hat_gen)
+    total = loss_real+loss_gen
+    return total
+
+def save_images(output_path, epoch, seed):
+    image_array = np.full((16 + (4 * (W+16)), 16 + (7 * (H+16)), 3), 255, dtype=np.uint8)
+
+    generated_images = generator.predict(seed)
+
+    generated_images = 0.5 * generated_images + 0.5
+
+    image_count = 0
+    for row in range(4):
+        for col in range(7):
+            r = row * (W+16) + 16
+            c = col * (H+16) + 16
+            image_array[r:r+W,c:c+H] = generated_images[image_count] * 255
+            image_count += 1
+
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    filename = os.path.join(output_path,&amp;quot;train-%s.png&amp;quot;%epoch)
+    im = Image.fromarray(image_array)
+    im.save(filename)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;defining-a-training-step&#34;&gt;Defining a Training step&lt;/h2&gt;
+&lt;p&gt;Tensorflow allows for precise control over what a training step is comprised of.  &lt;code&gt;tf.function&lt;/code&gt;  takes a python function and converts it to a graph representation that Tensorflow can use to perform automatic differentiation efficiently. Additionally, it provides us the power to control how the discriminator and generator get updated.&lt;/p&gt;
+&lt;p&gt;It is interesting how this process is accomplished. &lt;code&gt;tf.GradientTape()&lt;/code&gt; allows Tensorflow to keep track of the operations defined in the function and then apply automatic differentiation.&lt;/p&gt;
+&lt;p&gt;I&amp;rsquo;ll list through the operations that a training step requires:&lt;/p&gt;
+&lt;ol&gt;
+    &lt;li&gt;Generate a random seed to input to the Generator&lt;/li&gt;
+    &lt;li&gt;Obtain a generated dataset from the generator given the input seed&lt;/li&gt;
+    &lt;li&gt;Obtain predictions from the discriminator on the dataset obtained from the real distribution&lt;/li&gt;
+    &lt;li&gt;Obtian predictions from the discriminator on the generated dataset&lt;/li&gt;
+    &lt;li&gt;Obtain losses for both generator and discriminator&lt;/li&gt;
+    &lt;li&gt;Using Automatic Differentiation, obtain the gradients for the generator and discriminator &lt;/li&gt;
+    &lt;li&gt;Apply Backpropagation using the gradients.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;@tf.function
+def step(batch):
+    X_real, Y_real = batch
+    seed = tf.random.normal([X_real.shape[0], Y_real.shape[1]])
+    
+    #GradientTape - how tf does automatic differentiation.
+    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        X_gen = generator(seed, training=True)
+        
+        Y_hat_real = discriminator(X_real, training=True)
+        Y_hat_gen = discriminator(X_gen, training=True)
+        
+        gen_loss = loss_generator(Y_hat_gen)
+        disc_loss = loss_discriminator(Y_hat_real, Y_hat_gen)
+        
+        generator_grads = gen_tape.gradient(gen_loss, generator.trainable_variables)
+        discriminator_grads = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+        
+        generator_optimizer.apply_gradients(zip(generator_grads, generator.trainable_variables))
+        discriminator_optimizer.apply_gradients(zip(discriminator_grads, discriminator.trainable_variables))
+        
+        return gen_loss, disc_loss
+        
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def train(dataset, epochs, seed_size):
+    fixed_seed = np.random.normal(0, 1, (4 * 7, seed_size))
+    start = time.time()
+
+    for epoch in range(epochs):
+        epoch_start = time.time()
+
+        gen_loss_list = []
+        disc_loss_list = []
+
+        for image_batch in dataset:
+            t = step(image_batch)
+            gen_loss_list.append(t[0])
+            disc_loss_list.append(t[1])
+
+        g_loss = sum(gen_loss_list) / len(gen_loss_list)
+        d_loss = sum(disc_loss_list) / len(disc_loss_list)
+
+        epoch_elapsed = time.time()-epoch_start
+        print (&#39;Epoch %i, gen loss=%f,disc loss=%f \t %f&#39; % (epoch+1, g_loss, d_loss, epoch_elapsed))
+        save_images(output_path,epoch,fixed_seed )
+
+    elapsed = time.time()-start
+    print (&#39;Training time: %f&#39; % elapsed)
+    
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;preparing-the-dataset&#34;&gt;Preparing the Dataset&lt;/h2&gt;
+&lt;p&gt;I&amp;rsquo;ll be training the GAN on Google&amp;rsquo;s 
+&lt;a href=&#34;https://google.github.io/cartoonset/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Cartoon Set&lt;/a&gt;. The premise is to be able to generate good-enough looking faces with set categories to be able to play a randomized game of 
+&lt;a href=&#34;https://en.wikipedia.org/wiki/Guess_Who%3F&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Guess Who&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;The dataset is comprised of 10,000 randomly generated cartoon faces, each with .csv files containing the descriptive features.&lt;/p&gt;
+&lt;p&gt;The size of these images are $500\times500$. This is too large for my current GPU setup, so I&amp;rsquo;ll shrink it down to $64\times64$. Additionally, the .csv files hold set characteristics about the cartoon such as type of hair, eye color, etc. This allows us to create seeds to represent each of the cartoons.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;dataset_path = &#39;./cartoonset10k/&#39;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Visualize one entry
+files = os.listdir(dataset_path)
+
+i = np.random.randint(len(files)//2)
+
+#Investigate one sample
+file_name = files[i].split(&#39;.&#39;)[0]
+#Images are .png
+image_path = os.path.join(dataset_path, file_name+&#39;.png&#39;)
+csv_path = os.path.join(dataset_path, file_name+&#39;.csv&#39;)
+
+Image.open(image_path)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_11_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#View csv file
+characteristics = []
+variants = []
+total_variants = []
+with open(csv_path) as f:
+    reader = csv.reader(f)
+    for row in reader:
+        characteristic, value, num = row
+        characteristics.append(characteristic)
+        variants.append(float(value))
+        total_variants.append(float(num))
+unique_seed = np.asarray(variants)/(np.asarray(total_variants)/2)-1.0
+print(&amp;quot;Charateristics are:\n %s&amp;quot; % str(characteristics))
+print(&amp;quot;Unique Seed:\n %s&amp;quot; % str(unique_seed))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Charateristics are:
+ [&#39;eye_angle&#39;, &#39;eye_lashes&#39;, &#39;eye_lid&#39;, &#39;chin_length&#39;, &#39;eyebrow_weight&#39;, &#39;eyebrow_shape&#39;, &#39;eyebrow_thickness&#39;, &#39;face_shape&#39;, &#39;facial_hair&#39;, &#39;hair&#39;, &#39;eye_color&#39;, &#39;face_color&#39;, &#39;hair_color&#39;, &#39;glasses&#39;, &#39;glasses_color&#39;, &#39;eye_slant&#39;, &#39;eyebrow_width&#39;, &#39;eye_eyebrow_distance&#39;]
+Unique Seed:
+ [-0.33333333  0.          0.         -0.33333333  0.         -0.57142857
+ -0.5         0.42857143  0.86666667 -0.63963964  0.6         0.09090909
+  0.2         0.5        -1.         -0.33333333  0.33333333 -1.        ]
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Given the set number of characteristics, we can define unique seeds for each of the faces in our dataset. In doing so we can hope to create a structured latent space that allows us to tweak and generate images based on characteristics that we wish.&lt;/p&gt;
+&lt;p&gt;One aspect of note. Since the input images are PNG files they have 4 channels, RGBA, where the last one is the transparancy layer. This is useless to us, however it is not sufficient to just remove it as I found it produced artifacts near the borders of the face itself. Instead, we composite the image with a background, and can then safely remove the transparancy layer&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def get_unique_seed(csv_path):
+    &amp;quot;&amp;quot;&amp;quot;
+    Function to determine seed for a given sample in the dataset
+    
+    Attributes:
+    csv_path -- python string, path to the csv file
+    
+    Returns:
+    unique_seed -- numpy array, unique seed of image, length equal to number of features in the dataset
+    &amp;quot;&amp;quot;&amp;quot;
+    variants = []
+    total_variants = []
+    with open(csv_path) as f:
+        reader = csv.reader(f)
+        for row in reader:
+            _ , value, num = row
+            variants.append(float(value))
+            total_variants.append(float(num))
+    unique_seed = np.asarray(variants)/(np.asarray(total_variants)/2)-1.0
+    return unique_seed
+
+def get_features(csv_path):
+    &amp;quot;&amp;quot;&amp;quot;
+    Obtains list of feature for the dataset
+    
+    Attributes:
+    csv_path -- python string, path to the csv file
+    
+    Returns:
+    features -- python list, features of a sample in the dataset. Fixed for the datset
+    &amp;quot;&amp;quot;&amp;quot;
+    features = []
+    with open(csv_path) as f:
+        reader = csv.reader(f)
+        for row in reader:
+            feat ,_,_ = row
+            features.append(feat)
+    return features
+    
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Set width and height
+W = 64
+H = 64
+
+X = []
+Y = []
+
+X_path = &#39;./X.npy&#39;
+Y_path = &#39;./Y.npy&#39;
+
+for i,file_name in tqdm(enumerate(os.listdir(dataset_path)), desc=&#39;Reading Data&#39;):
+    #Ensure only look at the images, to avoid duplicates
+    if &#39;.png&#39; in file_name:
+        name = file_name.split(&#39;.&#39;)[0]
+        #Images are .png
+        image_path = os.path.join(dataset_path, name+&#39;.png&#39;)
+        csv_path = os.path.join(dataset_path, name+&#39;.csv&#39;)
+
+        #Get feautures
+        if i == 0:
+            features = get_features(csv_path)
+
+        #Get unique seed
+        seed = get_unique_seed(csv_path)
+
+        #Read and resize image
+        png = Image.open(image_path).resize((W,H),Image.ANTIALIAS)
+        background = Image.new(&#39;RGBA&#39;, png.size, (0,0,0))
+        
+        #Create alpha composite to avoid artifacts
+        alpha_composite = Image.alpha_composite(background, png)
+        
+        img = np.asarray(alpha_composite)/127.5 - 1.0
+        
+        #Remove transparancy layer
+        X.append(img[...,:3])
+        Y.append(seed)
+
+#Convert to np
+X = np.asarray(X)
+Y = np.asarray(Y)
+
+X = np.reshape(X,(-1,W, H, 3))
+X = X.astype(np.float32)
+
+#Save
+np.save(X_path,X)
+np.save(Y_path, Y)
+
+print(&#39;Done&#39;)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Visualize one entry of the dataset
+i = np.random.randint(X.shape[0])
+
+fig, ax = plt.subplots()
+fig.set_size_inches(12,12)
+fig.set_facecolor(&#39;w&#39;)
+
+ax.imshow(X[i])
+ax.set_title(Y[i])
+plt.axis(&#39;off&#39;)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_16_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;gan-stability-and-failure-modes&#34;&gt;GAN Stability and Failure Modes&lt;/h2&gt;
+&lt;p&gt;Before we start training, it is noteworthy to mention just how difficult GANs are to train. This difficulty arises because we need to train both a generative and discriminative model at the same time where improvements in one model will impact the other.&lt;/p&gt;
+&lt;p&gt;Because of this dynamic system, GANs can outright fail to converge. As such, I found it necessary to learn more about GAN stability and failure modes.&lt;/p&gt;
+&lt;p&gt;First, I&amp;rsquo;ll analyze what a Stable GAN should look like while training. Some best practices are:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Use Leaky ReLU activations instead of ReLU, since it is often preferred to normalize inputs to be between $[-1,1]$, and ReLU will set any inputs less than $0$ to be $0$.&lt;/li&gt;
+&lt;li&gt;Use a Kernel Size that is a factor of the stride&lt;/li&gt;
+&lt;li&gt;Use hyperbolic tan (tanh) as the output layer activation&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Once training begins, a stable GAN will have a generator loss somewhere around $[1.0,2.0]$ or higher, whereas the discriminator should hover around $0.5-0.8$.&lt;/p&gt;
+&lt;p&gt;Accuracy of the discriminator on both generated and real images should be around $0.7,0.8$&lt;/p&gt;
+&lt;p&gt;Personally, while training, I found that the initial training steps are crucial for stable training. I attempted several values of the learning rate parameter $\alpha$ which kept halting training without converging. The issue with this is that I required a very small $\alpha$ ($5.0\cdot 10^{-6}$) to be able to overcome the initial &amp;ldquo;turbulence&amp;rdquo;, however after becoming stable the improvements made were very slow as a result.&lt;/p&gt;
+&lt;h2 id=&#34;training-the-model&#34;&gt;Training the Model&lt;/h2&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;X_path = &#39;./X.npy&#39;
+Y_path = &#39;./Y.npy&#39;
+
+#Load the data
+X = np.load(X_path)
+Y = np.load(Y_path)
+
+#Shuffle data
+idx = np.random.permutation(range(X.shape[0]))
+X = X[idx]
+Y = Y[idx]
+
+#Dataset parameters
+batch_size = 8
+
+#Convert to unshuffled tensorflow dataset object
+dataset = tf.data.Dataset.from_tensor_slices((X,Y)).batch(batch_size)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Both the Generator and Discriminator will be optimized with Adam. Adam has three parameters that define it. It can be thought of combining Gradient Descent with RMSProp and Momentum. So it inherits the learning rate $\alpha$ parameter, as well as $\beta_1$ from momentum and $\beta_2$ from RMSProp. For a more in depth look at different optimizers, you can reference my implementation of neural nets from scratch in NumPy here.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#
+W = 64
+H = 64
+output_path = &#39;./figures&#39;
+
+#Define seed size
+seed_size = Y.shape[1]
+
+#Get models
+generator = get_generator(seed_size)
+discriminator = get_discriminator(X.shape[1:])
+
+#Alpha and Beta1 may need tuning. Beta2 most likely does not
+alpha = 5.0e-6
+beta_1 = 0.8
+beta_2 = 0.999
+
+#Get optimizers
+generator_optimizer = Adam(learning_rate=alpha, beta_1=beta_1, beta_2=beta_2)
+discriminator_optimizer = Adam(learning_rate=alpha, beta_1=beta_1, beta_2=beta_2)
+
+#Define parameters
+epochs = 500
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;train(dataset, epochs, seed_size)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;WARNING:tensorflow:From /home/francisco/.local/lib/python2.7/site-packages/tensorflow_estimator/python/estimator/api/_v1/estimator/__init__.py:12: The name tf.estimator.inputs is deprecated. Please use tf.compat.v1.estimator.inputs instead.
+
+WARNING:tensorflow:From /usr/local/lib/python2.7/dist-packages/tensorflow_core/python/ops/nn_impl.py:183: where (from tensorflow.python.ops.array_ops) is deprecated and will be removed in a future version.
+Instructions for updating:
+Use tf.where in 2.0, which has the same broadcast rule as np.where
+Epoch 1, gen loss=0.679988,disc loss=1.362854 	 76.512750
+Epoch 2, gen loss=0.693136,disc loss=1.386321 	 72.690860
+Epoch 3, gen loss=0.693149,disc loss=1.386317 	 75.233255
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;At this point, I realized my hardware was poorly equiped to handle the training, especially since I had to set the learning rate so small. So I copied my code to 
+&lt;a href=&#34;https://colab.research.google.com/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Google Colab&lt;/a&gt; and used their GPU power to run the model for $500$ epochs. The Generator and Discriminator Losses are plotted below (I absentmindedly forgot to include a plot for $i=499$ and I didnt want to run the training for another 3 hours, so bear with me):&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./loss_400_plot.png&#34; alt=&#34;png&#34; title=&#34;Losses after 400 Epochs&#34;&gt;&lt;/p&gt;
+&lt;p&gt;Additionally, for each epoch I saved a set of images from the same seed to see how training progressed over time, which is quite fascinating:&lt;/p&gt;
+
+
+
+
+  
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+&lt;video autoplay loop &gt;
+  &lt;source src=&#34;https://Fquico1999.github.io/img/training_0_500.mp4&#34; type=&#34;video/mp4&#34;&gt;
+&lt;/video&gt;
+&lt;h2 id=&#34;exploring-the-latent-space&#34;&gt;Exploring the Latent Space&lt;/h2&gt;
+&lt;p&gt;Initially, I had hoped that by feeding the generator feature vectors corresponding to the features outlined in the .csv files for each picture, the model would learn a very structured latent space that would be easy to navigate. However, I found the model to have a very large bias when I did this, so I had to opt for random seeds instead to obtain the results shown above.&lt;/p&gt;
+&lt;p&gt;As such, We need to explore this latent space to verify if there are ways of tweaking the output. If there are (hopefully orthogonalized) methods of accomplishing this, It will allow us to control the outputs we get, and be able to generate faces for our game of Guess Who.&lt;/p&gt;
+&lt;p&gt;The seeds fed into the generator during training matched the number of features described in each .csv file, so they have dimension $1\times18$, taking values in the range $(-1,1)$&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Path to latest model (generator model that is)
+model_path = &#39;./models/generator_500.h5&#39;
+
+#Load generator
+generator = load_model(model_path, compile=False)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Inference on random 1x18 vector
+X_i = tf.random.normal([1,18])
+
+#Get image, in range (-1,1)
+y_hat = generator.predict(X_i)[0]
+
+#Process image to be (0,255)
+y = ((y_hat+1.0)*127.5).astype(np.int32)
+
+fig,ax = plt.subplots()
+fig.set_size_inches(12,12)
+fig.set_facecolor(&#39;w&#39;)
+
+ax.imshow(y)
+ax.set_title(X_i.numpy())
+
+plt.axis(&#39;off&#39;)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_26_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;p&gt;The image above is an example of inference done on the model. It actually looks quite a bit better than the images in the time-lapse above because its been rescaled to be in the range $(0,255)$ as intended.&lt;/p&gt;
+&lt;p&gt;My initial strategy to explore the latent space will be to have a baseline prediction of just zeros, and vary one feature at a time. I am not expecting the latent space to be orthogonalized like that, but it might give some indication of the changes that occur.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Inference on zeros 1x18 vector
+X_i = tf.zeros([1,18])
+
+#Get image, in range (-1,1)
+y_hat = generator.predict(X_i)[0]
+
+#Process image to be (0,255)
+y = ((y_hat+1.0)*127.5).astype(np.int32)
+
+fig,ax = plt.subplots()
+fig.set_size_inches(12,12)
+fig.set_facecolor(&#39;w&#39;)
+
+ax.imshow(y)
+ax.set_title(X_i.numpy())
+
+plt.axis(&#39;off&#39;)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_28_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Start with the inital row
+num_samples = 10
+X = np.zeros([num_samples, 18])
+samples = np.linspace(-1,1,num=num_samples)
+X[:,0]  = samples
+
+Y = generator.predict(X)
+
+fig, ax = plt.subplots(1,num_samples)
+fig.set_size_inches(num_samples*2,12)
+fig.set_facecolor(&#39;w&#39;)
+for i in range(num_samples):
+    y_hat = Y[i]
+    y = ((y_hat+1.0)*127.5).astype(np.int32)
+    ax[i].imshow(y)
+    ax[i].set_title(&amp;quot;%.02f&amp;quot; % samples[i])
+    ax[i].axis(&#39;off&#39;)
+fig.tight_layout()
+plt.show()
+
+#Make a finer sampling for gif
+num_samples = 100
+X = np.zeros([num_samples, 18])
+samples = np.linspace(-1,1,num=num_samples)
+X[:,0]  = samples
+
+Y = generator.predict(X)
+
+fig, ax = plt.subplots()
+fig.set_size_inches(12,12)
+fig.set_facecolor(&#39;w&#39;)
+for i in range(num_samples):
+    y_hat = Y[i]
+    y = ((y_hat+1.0)*127.5).astype(np.int32)
+    ax.imshow(y)
+    ax.axis(&#39;off&#39;)
+    plt.savefig(&#39;./figures/feature_1/frame_%i&#39; % i)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_29_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_29_1.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;p&gt;This is absolutely incredible! The latent space seems smooth. We can see, however, it is not orthogonalized, since by changing this parameter we change not only the hair style, but color and skin color as well.&lt;/p&gt;
+
+
+
+
+  
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+&lt;video autoplay loop &gt;
+  &lt;source src=&#34;https://Fquico1999.github.io/img/feature_1.mp4&#34; type=&#34;video/mp4&#34;&gt;
+&lt;/video&gt;
+&lt;p&gt;The next step is to do the same for every feature.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;num_samples = 10
+num_feats = 18
+X = np.zeros([num_samples, num_feats])
+samples = np.linspace(-1,1,num=num_samples)
+
+fig, ax = plt.subplots(num_feats,num_samples)
+fig.set_size_inches(num_samples*2,num_feats*2)
+fig.set_facecolor(&#39;w&#39;)
+
+for i in range(num_feats):
+    X_i = np.copy(X)
+    X_i[:,i] = samples
+
+    Y = generator.predict(X_i)
+
+    for j in range(num_samples):
+        y_hat = Y[j]
+        y = ((y_hat+1.0)*127.5).astype(np.int32)
+        ax[i,j].imshow(y)
+        ax[i,j].set_title(&amp;quot;Feature %i : %.02f&amp;quot; % (i+1,samples[j]))
+        ax[i,j].axis(&#39;off&#39;)
+fig.tight_layout()
+plt.savefig(&#39;./figures/latentspace.png&#39;,dpi=200)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_31_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;super-resolution--upsampling&#34;&gt;Super Resolution / Upsampling&lt;/h2&gt;
+&lt;p&gt;Given the very large dataset of detailed images, we had to downscale the images to $64\times64$ to be able to fit in memory during training.&lt;/p&gt;
+&lt;p&gt;Now, I will train a super resolution model to upsample the images and obtain more detailed faces. I will be using the original dataset, in hopes that the GAN has learned a reasonable approximation to that distribution.&lt;/p&gt;
+&lt;p&gt;Now, the original $500x500$ scale may be too large for adequate mapping. I&amp;rsquo;ll try with $256\times256$.&lt;/p&gt;
+&lt;p&gt;I&amp;rsquo;ll use a model architecture called VDSR, which stands for Very Deep Super Resolution. I review the paper 
+&lt;a href=&#34;../../post/vdsr_paper/&#34;&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;dataset_path = &#39;./cartoonset10k/&#39;
+
+#Set input width and height
+W_in = 64
+H_in = 64
+
+#Set output width and height
+W_out = 256
+H_out = 256
+
+X = []
+Y = []
+
+X_path = &#39;./super_res_X.npy&#39;
+Y_path = &#39;./super_res_Y.npy&#39;
+
+files = os.listdir(dataset_path)
+idx = np.random.randint(len(files), size=int(0.15*len(files)))
+
+for i,file_name in tqdm(enumerate(np.asarray(files)[idx]), desc=&#39;Reading Data&#39;):
+    #Ensure only look at the images, to avoid duplicates
+    if &#39;.png&#39; in file_name:
+        name = file_name.split(&#39;.&#39;)[0]
+        #Images are .png
+        image_path = os.path.join(dataset_path, name+&#39;.png&#39;)
+        
+        #Read and resize image
+        png_in = Image.open(image_path).resize((W_in,H_in),Image.ANTIALIAS)
+        background_in = Image.new(&#39;RGBA&#39;, png_in.size, (0,0,0))
+        #Create alpha composite to avoid artifacts
+        alpha_composite = Image.alpha_composite(background_in, png_in)
+        img_in = np.asarray(alpha_composite)/127.5 - 1.0
+        
+        #Get label
+        png_out = Image.open(image_path).resize((W_out, H_out), Image.BICUBIC)
+        background_out = Image.new(&#39;RGBA&#39;, png_out.size, (0,0,0))
+        #Create alpha composite to avoid artifacts
+        alpha_composite = Image.alpha_composite(background_out, png_out)
+        img_out = np.asarray(alpha_composite)/127.5-1.0
+        
+        X.append(img_in)
+        Y.append(img_out)
+
+#Convert to np
+X = np.asarray(X)
+Y = np.asarray(Y)
+
+X = np.reshape(X[...,:3],(-1,W_in, H_in, 3))
+X = X.astype(np.float32)
+
+Y = np.reshape(Y[...,:3],(-1,W_out, H_out, 3))
+Y = Y.astype(np.float32)
+
+#Save
+#np.save(X_path,X)
+#np.save(Y_path, Y)
+
+print(&#39;Done&#39;)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Reading Data: 3000it [00:21, 138.79it/s]
+
+
+Done
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def super_res_model(input_shape, output_shape):
+    
+    X_in = Input(shape = input_shape)
+    X = Conv2D(64, (3, 3), padding=&#39;same&#39;, kernel_initializer=&#39;he_normal&#39;)(X_in)
+    X = Activation(&#39;relu&#39;)(X)
+    for _ in range(18):
+        X = Conv2D(64, (3, 3), padding=&#39;same&#39;, kernel_initializer=&#39;he_normal&#39;)(X)
+        X = Activation(&#39;relu&#39;)(X)
+    
+    #Final layer for residual image
+    X = Conv2D(1, (3, 3), padding=&#39;same&#39;, kernel_initializer=&#39;he_normal&#39;)(X)
+    
+    X = Add()([X, X_in])
+    model = Model(inputs = X_in, outputs = X)
+    return model
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Set input width and height
+W_in = 64
+H_in = 64
+
+#Set output width and height
+W_out = 256
+H_out = 256
+
+#Resize input images with bicubic interpolation
+h_factor = H_out/H_in
+w_factor = W_out/ W_in
+X_resized = resize_images(X, h_factor, w_factor,data_format=&#39;channels_last&#39;,interpolation=&#39;bilinear&#39;)
+
+# model = super_res_model(X.shape[1:], Y.shape[1:])
+# model.compile(optimizer=&#39;adam&#39;,loss=&#39;mean_absolute_error&#39;, metrics=[&#39;accuracy&#39;])
+# model.summary()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;lr = 0.000007
+epochs = 75
+
+model = super_res_model(X_resized.shape.as_list()[1:], Y.shape[1:])
+model.compile(optimizer=Adam(lr=lr),loss=&#39;mean_absolute_error&#39;, metrics=[&#39;accuracy&#39;])
+model.summary()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Model: &amp;quot;model&amp;quot;
+__________________________________________________________________________________________________
+Layer (type)                    Output Shape         Param #     Connected to                     
+==================================================================================================
+input_1 (InputLayer)            [(None, 256, 256, 3) 0                                            
+__________________________________________________________________________________________________
+conv2d (Conv2D)                 (None, 256, 256, 64) 1792        input_1[0][0]                    
+__________________________________________________________________________________________________
+activation (Activation)         (None, 256, 256, 64) 0           conv2d[0][0]                     
+__________________________________________________________________________________________________
+conv2d_1 (Conv2D)               (None, 256, 256, 64) 36928       activation[0][0]                 
+__________________________________________________________________________________________________
+activation_1 (Activation)       (None, 256, 256, 64) 0           conv2d_1[0][0]                   
+__________________________________________________________________________________________________
+conv2d_2 (Conv2D)               (None, 256, 256, 64) 36928       activation_1[0][0]               
+__________________________________________________________________________________________________
+activation_2 (Activation)       (None, 256, 256, 64) 0           conv2d_2[0][0]                   
+__________________________________________________________________________________________________
+conv2d_3 (Conv2D)               (None, 256, 256, 64) 36928       activation_2[0][0]               
+__________________________________________________________________________________________________
+activation_3 (Activation)       (None, 256, 256, 64) 0           conv2d_3[0][0]                   
+__________________________________________________________________________________________________
+conv2d_4 (Conv2D)               (None, 256, 256, 64) 36928       activation_3[0][0]               
+__________________________________________________________________________________________________
+activation_4 (Activation)       (None, 256, 256, 64) 0           conv2d_4[0][0]                   
+__________________________________________________________________________________________________
+conv2d_5 (Conv2D)               (None, 256, 256, 64) 36928       activation_4[0][0]               
+__________________________________________________________________________________________________
+activation_5 (Activation)       (None, 256, 256, 64) 0           conv2d_5[0][0]                   
+__________________________________________________________________________________________________
+conv2d_6 (Conv2D)               (None, 256, 256, 64) 36928       activation_5[0][0]               
+__________________________________________________________________________________________________
+activation_6 (Activation)       (None, 256, 256, 64) 0           conv2d_6[0][0]                   
+__________________________________________________________________________________________________
+conv2d_7 (Conv2D)               (None, 256, 256, 64) 36928       activation_6[0][0]               
+__________________________________________________________________________________________________
+activation_7 (Activation)       (None, 256, 256, 64) 0           conv2d_7[0][0]                   
+__________________________________________________________________________________________________
+conv2d_8 (Conv2D)               (None, 256, 256, 64) 36928       activation_7[0][0]               
+__________________________________________________________________________________________________
+activation_8 (Activation)       (None, 256, 256, 64) 0           conv2d_8[0][0]                   
+__________________________________________________________________________________________________
+conv2d_9 (Conv2D)               (None, 256, 256, 64) 36928       activation_8[0][0]               
+__________________________________________________________________________________________________
+activation_9 (Activation)       (None, 256, 256, 64) 0           conv2d_9[0][0]                   
+__________________________________________________________________________________________________
+conv2d_10 (Conv2D)              (None, 256, 256, 64) 36928       activation_9[0][0]               
+__________________________________________________________________________________________________
+activation_10 (Activation)      (None, 256, 256, 64) 0           conv2d_10[0][0]                  
+__________________________________________________________________________________________________
+conv2d_11 (Conv2D)              (None, 256, 256, 64) 36928       activation_10[0][0]              
+__________________________________________________________________________________________________
+activation_11 (Activation)      (None, 256, 256, 64) 0           conv2d_11[0][0]                  
+__________________________________________________________________________________________________
+conv2d_12 (Conv2D)              (None, 256, 256, 64) 36928       activation_11[0][0]              
+__________________________________________________________________________________________________
+activation_12 (Activation)      (None, 256, 256, 64) 0           conv2d_12[0][0]                  
+__________________________________________________________________________________________________
+conv2d_13 (Conv2D)              (None, 256, 256, 64) 36928       activation_12[0][0]              
+__________________________________________________________________________________________________
+activation_13 (Activation)      (None, 256, 256, 64) 0           conv2d_13[0][0]                  
+__________________________________________________________________________________________________
+conv2d_14 (Conv2D)              (None, 256, 256, 64) 36928       activation_13[0][0]              
+__________________________________________________________________________________________________
+activation_14 (Activation)      (None, 256, 256, 64) 0           conv2d_14[0][0]                  
+__________________________________________________________________________________________________
+conv2d_15 (Conv2D)              (None, 256, 256, 64) 36928       activation_14[0][0]              
+__________________________________________________________________________________________________
+activation_15 (Activation)      (None, 256, 256, 64) 0           conv2d_15[0][0]                  
+__________________________________________________________________________________________________
+conv2d_16 (Conv2D)              (None, 256, 256, 64) 36928       activation_15[0][0]              
+__________________________________________________________________________________________________
+activation_16 (Activation)      (None, 256, 256, 64) 0           conv2d_16[0][0]                  
+__________________________________________________________________________________________________
+conv2d_17 (Conv2D)              (None, 256, 256, 64) 36928       activation_16[0][0]              
+__________________________________________________________________________________________________
+activation_17 (Activation)      (None, 256, 256, 64) 0           conv2d_17[0][0]                  
+__________________________________________________________________________________________________
+conv2d_18 (Conv2D)              (None, 256, 256, 64) 36928       activation_17[0][0]              
+__________________________________________________________________________________________________
+activation_18 (Activation)      (None, 256, 256, 64) 0           conv2d_18[0][0]                  
+__________________________________________________________________________________________________
+conv2d_19 (Conv2D)              (None, 256, 256, 1)  577         activation_18[0][0]              
+__________________________________________________________________________________________________
+add (Add)                       (None, 256, 256, 3)  0           conv2d_19[0][0]                  
+                                                                 input_1[0][0]                    
+==================================================================================================
+Total params: 667,073
+Trainable params: 667,073
+Non-trainable params: 0
+__________________________________________________________________________________________________
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;history = model.fit(X_resized.numpy(),Y,batch_size=1,epochs=60,validation_split=0.10)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;model_name = &#39;super_res_%f_%i&#39; % (lr, epochs)
+model.save(&#39;/content/gdrive/My Drive/Colab Notebooks/GAN/&#39; + model_name + &#39;.h5&#39;)
+
+fig, ax = plt.subplots()
+fig.set_size_inches(12,12)
+fig.set_facecolor(&#39;w&#39;)
+
+ax.plot(history.history[&#39;accuracy&#39;], label = &#39;accuracy&#39;)
+ax.plot(history.history[&#39;val_accuracy&#39;], label = &#39;validation_accuracy&#39;)
+
+ax2 = ax.twinx()
+
+ax2.plot(history.history[&#39;loss&#39;], label = &#39;mse_loss&#39;)
+ax2.plot(history.history[&#39;val_loss&#39;], label = &#39;validation_mse_loss&#39;)
+
+plt.legend()
+plt.savefig(&#39;/content/gdrive/My Drive/Colab Notebooks/GAN/&#39; + model_name+&#39;_history.png&#39;)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./super_res_0.000007_75_history.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;p&gt;Unfortunately, my poor computer wasn&amp;rsquo;t able to load the large tensors into RAM, even only using 20% of the dataset. So I trained the model in Google collab once more.&lt;/p&gt;
+&lt;p&gt;Here is a sample input from that model&lt;/p&gt;
+&lt;p&gt;&lt;img src=&#34;./super_res_0.000007_75_example.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;estabishing-the-pipeline&#34;&gt;Estabishing the Pipeline&lt;/h2&gt;
+&lt;p&gt;So we have two trained models. The first one is the generator that takes in a vector of noise and outputs an image of dimension $64\times 64\times 3$.&lt;/p&gt;
+&lt;p&gt;We also have a trained VDSR model that takes in images of dimension $256\times 256\times 3$ and outputs images of dimension $256\times 256\times 3$.&lt;/p&gt;
+&lt;p&gt;The inputs to the VDSR model are bicubic resizes of the $64\times 64\times 3$ outputs.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Path to latest generator model
+gen_model_path = &#39;./models/generator_500.h5&#39;
+
+#Path to super resolution model
+res_model_path = &#39;./models/super_res_0.000007_75.h5&#39;
+
+#Load generator
+generator = load_model(gen_model_path, compile=False)
+#Load super resolution model
+super_res_model = load_model(res_model_path, compile=False)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;## Params
+#Set input width and height
+W_in = 64
+H_in = 64
+
+#Set output width and height
+W_out = 256
+H_out = 256
+
+#Resize factor
+h_factor = H_out/H_in
+w_factor = W_out/ W_in
+
+## Generator
+#Inference on random 1x18 vector
+X_i = tf.random.normal([1,18])
+#Get image, in range (-1,1)
+y_hat = generator.predict(X_i)[0]
+
+#Process image to be (0,255)
+y = ((y_hat+1.0)*127.5).astype(np.int32)
+
+## Super Resolution
+#Resize
+y_resized = resize_images(np.expand_dims(y_hat, axis=0), h_factor, w_factor,data_format=&#39;channels_last&#39;,interpolation=&#39;bilinear&#39;)
+
+#Get super resolution prediction
+super_res_hat = super_res_model.predict(y_resized)[0]
+
+#Process image to be (0,255)
+super_res = ((super_res_hat+1.0)*127.5).astype(np.int32)
+
+## Plotting
+fig,ax = plt.subplots(1,2)
+fig.set_size_inches(24,12)
+fig.set_facecolor(&#39;w&#39;)
+
+ax[0].imshow(y)
+ax[0].set_title(X_i.numpy())
+
+ax[1].imshow(super_res)
+ax[1].set_title(&#39;Super Resolution&#39;)
+
+plt.axis(&#39;off&#39;)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./GAN_44_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>NumPy Neural Networks</title>
+      <link>https://Fquico1999.github.io/project/numpy_neural_nets/</link>
+      <pubDate>Tue, 09 Jun 2020 22:09:34 -0700</pubDate>
+      <guid>https://Fquico1999.github.io/project/numpy_neural_nets/</guid>
+      <description>&lt;p&gt;&lt;em&gt;You can find this repository 
+&lt;a href=&#34;https://github.com/Fquico1999/numpy_neural_nets&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;here&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;h2 id=&#34;overview&#34;&gt;Overview&lt;/h2&gt;
+&lt;p&gt;In an attempt to test and further my understanding of the mathematics and logistics behind neural networks and how they operate, I decided to follow what I learned in deeplearning.ai&amp;rsquo;s 
+&lt;a href=&#34;https://www.coursera.org/learn/neural-networks-deep-learning&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Neural Networks and Deep Learning&lt;/a&gt; course and implement Neural Networks from scratch using only 
+&lt;a href=&#34;https://numpy.org/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;NumPy&lt;/a&gt;.&lt;/p&gt;
+&lt;h2 id=&#34;outline&#34;&gt;Outline&lt;/h2&gt;
+&lt;p&gt;To build a neural net from scratch, we need to go over each block and code those individually. At the end we can combine all of these to create an $L$-layer NN.&lt;/p&gt;
+&lt;p&gt;So, the steps we need to take are:&lt;/p&gt;
+&lt;ul&gt;
+    &lt;li&gt;Parameter Intialization: We need to initialize parameters $W$ and $b$&lt;/li&gt;
+    &lt;li&gt;Compute a forward propagation pass: This involves computing the linear pass - $Z^{[l]}=W^{[l]}A^{[l-1]}+b^{[l]}$ - and the activation $A^{[l]}=g(Z^{[l]})$ for both Sigmoid and ReLU activations&lt;/li&gt;
+    &lt;li&gt;Compute the loss&lt;/li&gt;
+    &lt;li&gt;Implement a back propagation pass&lt;/li&gt;
+    &lt;li&gt;Update the parameters: Here I&#39;ll code in mini Batch Gradient Descent (Which will cover both Stochastic Gradient Descent as well as Batch Gradient Descent), Momentum, RMSProp, and the king of them all, Adam&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;import math
+import numpy as np
+import matplotlib.pyplot as plt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;activation-functions&#34;&gt;Activation Functions&lt;/h2&gt;
+&lt;p&gt;To add non-linearity to the model, activation functions are used. I&amp;rsquo;ll define them now.
+I&amp;rsquo;ll be using ReLU (rectified linear unit) and sigmoid in an example, but I&amp;rsquo;ll also define tanh and leaky ReLU.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def relu(Z):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    Z -- output of linear function Z = W*A+b
+    
+    Returns:
+    ret -- ReLU(Z)
+    Z -- input for use in backprop
+    
+    &amp;quot;&amp;quot;&amp;quot;
+    return np.maximum(0,Z), Z
+
+def sigmoid(Z):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    Z -- output of linear function Z = W*A+b
+    
+    Returns:
+    ret -- sigmoid(Z)
+    Z -- input for use in backprop
+    
+    &amp;quot;&amp;quot;&amp;quot;
+    return 1./(1.+np.exp(-Z)), Z
+
+def tanh(Z):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    Z -- output of linear function Z = W*A+b
+    
+    Returns:
+    ret -- tanh(Z)
+    Z -- input for use in backprop
+    
+    &amp;quot;&amp;quot;&amp;quot;
+    return np.tanh(Z), Z
+
+def leaky_relu(Z):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    Z -- output of linear function Z = W*A+b
+    
+    Returns:
+    ret -- leaky_relu(Z)
+    Z -- input for use in backprop
+    
+    &amp;quot;&amp;quot;&amp;quot;
+    return np.maximum(0.01*Z, Z), Z
+    
+    
+    
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;parameter-initialization&#34;&gt;Parameter Initialization&lt;/h2&gt;
+&lt;p&gt;For passing parameter information between different functions, I&amp;rsquo;ll use a dictionary &lt;code&gt;parameters&lt;/code&gt;, which will store $W$ and $b$ values for each layer $l {l:{0\le l \le L}}$&lt;/p&gt;
+&lt;p&gt;Additionally, I&amp;rsquo;ll implement random, Xavier initialization, and He initialization.&lt;/p&gt;
+&lt;ul&gt;
+    &lt;li&gt;Random Initialization: Samples values from a normal distribution, and multiplies by a small value to keep weights close to zero - regularization&lt;/li&gt;
+    &lt;li&gt;Xavier Initialization: random sampling is multiplied by constant $\sqrt{\frac{1}{\text{previous layer dimension}}}$&lt;/li&gt;
+    &lt;li&gt;He Initialization: random sampling is multiplied by constant $\sqrt{\frac{2}{\text{previous layer dimension}}}$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def initialize_parameters(model_shape, initialization_method=&#39;he&#39;):
+    &amp;quot;&amp;quot;&amp;quot;
+    Initializes parameters W and b of a network of shape model_shape.
+    
+    Arguments:
+    model_shape -- list containing the dimensions of each network layer l
+    
+    Returns:
+    parameters --  dictionary containing weight and bias parameters
+    &amp;quot;&amp;quot;&amp;quot;
+    #define dictionary
+    params = {}
+    
+    #Obtain L
+    L = len(model_shape)
+    
+    #Check initialization_method
+    if initialization_method == &#39;random&#39;:
+        beta = 0.01
+        for l in range(1,L):
+            params[&amp;quot;W&amp;quot;+str(l)] = np.random.randn(model_shape[l], model_shape[l-1])*beta
+            params[&amp;quot;b&amp;quot;+str(l)] = np.zeros([model_shape[l], 1])
+    
+    elif initialization_method == &#39;xavier&#39;:
+        L = L-1
+        for l in range(1,L+1):
+            beta = np.sqrt(1./model_shape[l-1])
+            params[&amp;quot;W&amp;quot;+str(l)] = np.random.randn(model_shape[l], model_shape[l-1])*beta
+            params[&amp;quot;b&amp;quot;+str(l)] = np.zeros([model_shape[l], 1])
+    
+    elif initialization_method == &#39;he&#39;:
+        L = L - 1
+        for l in range(1,L+1):
+            beta = np.sqrt(2./model_shape[l-1])
+            params[&amp;quot;W&amp;quot;+str(l)] = np.random.randn(model_shape[l], model_shape[l-1])*beta
+            params[&amp;quot;b&amp;quot;+str(l)] = np.zeros([model_shape[l], 1])
+    else:
+        raise NameError(&amp;quot;%s is not a valid initalization method&amp;quot;%(initialization_method))
+
+    return params
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;forward-propagation&#34;&gt;Forward Propagation&lt;/h2&gt;
+&lt;p&gt;Forward propagation refers to passing through the computation graph from left to right - forwards - and evaluating $Z^{[l]}=W^{[l]}A^{[l-1]}+b^{[l]}$ for each sucessive $l$ starting with $l=1$, in which case $A^{[0]}=X$, in other words, the activation fed into the first layer is simply the inputs.&lt;/p&gt;
+&lt;p&gt;To accomplish this, I&amp;rsquo;ll create two functions. The first will evaluate the linear formula $Z^{[l]}=W^{[l]}A^{[l-1]}+b^{[l]}$, whereas the second will evaluate $A^{[l]} = g(Z^{[l]})$, which corresponds to evaluating the activation function.&lt;/p&gt;
+&lt;p&gt;Then &lt;code&gt;forward_prop&lt;/code&gt; implements both to complete a forward propagation pass.&lt;/p&gt;
+&lt;p&gt;In order to compute the backprop later onwards, I&amp;rsquo;ll need to store $A^{[l]}$,$W^{[l]}$, $b^{[l]}$ as well as $Z^{[l]}$ which I&amp;rsquo;ll do in &lt;code&gt;linear cache&lt;/code&gt; and &lt;code&gt;activation cache&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;One of the arguments of &lt;code&gt;forward_prop&lt;/code&gt; is &lt;code&gt;layer_activations&lt;/code&gt;, which is a list of the activations for each layer of the neural network.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def forward_linear(W,A,b):
+    &amp;quot;&amp;quot;&amp;quot;
+    Linear part of forward propagation
+
+    Arguments:
+    W -- weight matrix
+    A -- activations
+    b -- bias matrix
+
+    Returns:
+    Z -- input to the layer&#39;s activation function
+    linear_cache -- tuple with A, W, b for efficient backprop
+    &amp;quot;&amp;quot;&amp;quot;
+    Z = np.dot(W,A)+b
+    
+    linear_cache = (A,W,b)
+    
+    assert(Z.shape == (W.shape[0], A.shape[1]))
+    
+    return Z, linear_cache
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def forward_activation(Z, activation):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    Z -- Output of linear function Z = WA_prev+b
+    activation -- String denoting activation function to use. One of [linear, sigmoid, relu, leaky_relu, tanh, softmax]
+    
+    Returns:
+    A -- g(Z), where g() is the corresponding activation
+    activation_cache -- the input Z, which will be fed into backprop
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    if activation == &#39;linear&#39;:
+        A, activation_cache = Z, Z
+    elif activation == &#39;sigmoid&#39;:
+        A, activation_cache = sigmoid(Z)
+    elif activation == &#39;relu&#39;:
+        A, activation_cache = relu(Z)
+    elif activation == &#39;leaky_relu&#39;:
+        A, activation_cache = leaky_relu(Z)
+    elif activation == &#39;tanh&#39;:
+        A, activation_cache = tanh(Z)
+    else:
+        raise NameError(&#39;%s is not a valid activation function&#39; %(activation))
+    
+    return A, activation_cache
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def forward_prop(X, layer_activations, parameters):
+    &amp;quot;&amp;quot;&amp;quot;
+    Implements one pass of forward propagation
+    
+    Arguments:
+    X -- input data
+    layer_activations -- list of strings corresponding to the activations of each layer
+    parameters -- output of initialize_parameters
+    
+    Returns:
+    A - Output of activation function of the last layer
+    caches - list of caches containing both linear and activation caches
+    &amp;quot;&amp;quot;&amp;quot;
+    #Define caches
+    caches = []
+    #A[0] is the input
+    A = X
+    L = len(parameters)//2 
+    
+    for l in range(1, L+1):
+        A_prev = A
+        W = parameters[&amp;quot;W&amp;quot;+str(l)]
+        b = parameters[&amp;quot;b&amp;quot;+str(l)]
+        Z, linear_cache = forward_linear(W, A_prev, b)
+        A, activation_cache = forward_activation(Z, layer_activations[l])
+        
+        assert (A.shape == (W.shape[0], A_prev.shape[1]))
+        
+        #Add both linear and activation cache to caches
+        caches.append((linear_cache, activation_cache))
+
+    return A, caches
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;cost-function&#34;&gt;Cost Function&lt;/h2&gt;
+&lt;p&gt;The cost function is the metric that a neural net aims to minimize. I&amp;rsquo;ll implement cross-entropy cost, given by:&lt;/p&gt;
+&lt;p&gt;$$-\frac{1}{m} \sum\limits_{i = 1}^{m} (y^{(i)}\log\left(a^{[L](i)}\right) + (1-y^{(i)})\log\left(1- a^{[L](i)}\right))$$&lt;/p&gt;
+&lt;p&gt;Thus, we require a method of computing cost after one pass of forward propagation.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def cost(A_last, Y):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    A_last -- Post-activation value of the last layer of the network
+    Y -- Groud truth vectors
+    
+    Returns:
+    cost -- cross-entropy cost
+    &amp;quot;&amp;quot;&amp;quot;
+    #Get number of samples, m
+    m = Y.shape[1]
+    #Compute cross entropy cost
+    cost = -(1.0/m)*np.sum(Y*np.log(A_last)+(1.-Y)*np.log(1.-A_last))
+        
+    #Ensure appropriate dimensions
+    cost = np.squeeze(cost)
+    
+    return cost
+    
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;back-propagation&#34;&gt;Back Propagation&lt;/h2&gt;
+&lt;p&gt;To update our parameters, we need to calculate the gradient of the loss with respect to $W$ and $b$&lt;/p&gt;
+&lt;p&gt;Just like with forward prop, I will implement two functions. One deals with the back pass for the linear part of the units and the other deals with the derivatives of the activation functions.&lt;/p&gt;
+&lt;p&gt;For the linear part, we take the derivatives of the parameters, obtaining:&lt;/p&gt;
+&lt;p&gt;$$ dW^{[l]} = \frac{1}{m} dZ^{[l]} A^{[l-1] T} $$
+$$ db^{[l]} = \frac{1}{m} \sum_{i = 1}^{m} dZ^{[l](i)}$$
+$$ dA^{[l-1]} = W^{[l] T} dZ^{[l]} $$&lt;/p&gt;
+&lt;p&gt;For the activation part, the backprop requires the gradient of the activation function. As such it depends on the activation used, and I&amp;rsquo;ll define them for each one.&lt;/p&gt;
+&lt;p&gt;For sigmoid:&lt;/p&gt;
+&lt;p&gt;$$ \sigma{(z)} = \frac{1}{1+e^{-x}}$$
+$$\frac{d\sigma{(z)}}{dz} = \sigma{(z)}(1-\sigma{(z)})$$&lt;/p&gt;
+&lt;p&gt;For ReLU:&lt;/p&gt;
+&lt;p&gt;$$\text{ReLU}(z) = \max{(0,z)}$$
+$$\frac{d\text{ReLU}}{dz} = \left\{\begin{array}{ll}1 , z &amp;gt; 0\\0, z \le 0\end{array}\right.$$&lt;/p&gt;
+&lt;p&gt;Note that for ReLU, strictly speaking, there is a discontinuity at $z=0$, however since it is incredibly unlikely that the input to the function will every be exactly zero, it&amp;rsquo;s fine to include it in  $z\le0$&lt;/p&gt;
+&lt;p&gt;For tanh:
+$$\tanh{(z)} = \frac{e^{z}-e^{-z}}{e^{z}+e^{-z}}$$
+$$\frac{d\tanh(z)}{dz} = 1-\tanh^2(z)$$&lt;/p&gt;
+&lt;p&gt;For leaky ReLU:
+$$\text{leaky ReLU}(z) = \max(0.01z, z)$$
+$$\frac{d(\text{leaky Relu}(z))}{dz} = \left\{\begin{array}{ll}1 , z &amp;gt; 0\\0.01, z \le0\end{array}\right.$$&lt;/p&gt;
+&lt;p&gt;So, I&amp;rsquo;ll implement functions for each of these units to compute:
+$$dZ^{[l]} = dA^{[l]} * g&amp;rsquo;(Z^{[l]})$$&lt;/p&gt;
+&lt;p&gt;Additionally, to initialize backpropagation, we need $\frac{d\mathcal{L}}{dA^{[L]}}$, the gradient of the cost function with respect to the last activation output. For cross-entropy this is:
+$$-\sum\limits_{i=1}^{m}\frac{y^{i}}{a^{[L](i)}} - \frac{1-y^{i}}{1-a^{[L](i)}}$$&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def backward_linear(dZ, cache):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    dZ -- Gradient of cost w.r.t linear portion
+    cache -- tuple coming from cached forward prop of layer l
+    
+    Returns:
+    dA_prev -- gradient with respect to activation of previous layer
+    dW -- gradient with respect to weights of current layer
+    db -- gradient with respect to biases of current layer
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    #unpack cache
+    A_prev, W, b = cache
+    #Get number of samples
+    m = A_prev.shape[1]
+    
+    dW = 1./m*np.dot(dZ, A_prev.T)
+    db = 1./m*np.sum(dZ, axis=1, keepdims=True)
+    dA_prev = np.dot(W.T, dZ)
+    
+    assert (dA_prev.shape == A_prev.shape)
+    assert (dW.shape == W.shape)
+    assert (db.shape == b.shape)
+    
+    return dA_prev, dW, db
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def backward_activation(dA, Z, activation):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    dA -- post-activation gradient for current layer l 
+    Z -- cached matrix from forward prop
+    activation -- the activation to be used in the layer
+    
+    Returns:
+    dZ -- gradient of cost function with respect to Z[l]
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    if activation == &#39;linear&#39;:
+        dZ = dA
+    
+    elif activation == &amp;quot;relu&amp;quot;:
+        dZ = np.array(dA, copy=True)
+        dZ[Z &amp;lt;= 0] = 0
+        
+    elif activation == &amp;quot;sigmoid&amp;quot;:
+        s = 1./(1+np.exp(-Z))
+        dZ = dA * s * (1-s)
+
+    elif activation == &amp;quot;leaky_relu&amp;quot;:
+        dZ = np.array(dA, copy=True)
+        dZ[Z &amp;lt;= 0] = 0.01
+
+    elif activation == &amp;quot;tanh&amp;quot;:
+        dZ = dA*(1 - tanh(Z)**2)
+    
+    else:
+        raise NameError(&amp;quot;%s is not a valid activation function&amp;quot; % (activation))
+    assert(dZ.shape == Z.shape)
+    return dZ
+    
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def backward_prop(AL, Y, caches, layer_activations):
+    &amp;quot;&amp;quot;&amp;quot;
+    Implement a backward propagation pass
+    
+    Arguments:
+    AL -- output of the forward propagation
+    Y -- ground truth
+    caches -- list of caches containing linear_cache and activation_cache
+    
+    Returns:
+    grads -- A dictionary with the gradients dA[l], dW[l], db[l]
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    #Define dict to store gradients for parameter update
+    grads = {}
+    L = len(caches)
+    m = AL.shape[1]
+    #Ensure Y is the same as AL (which is essentially y_hat)
+    Y = Y.reshape(AL.shape)
+    
+    #Initialize backprop, a.k.a derivative of cost with respect to AL
+    dAL =  -(np.divide(Y, AL) - np.divide(1 - Y, 1 - AL))
+
+    grads[&amp;quot;dA&amp;quot;+str(L)] = dAL
+
+    for l in reversed(range(L)):
+        current_cache = caches[l]
+        linear_cache, activation_cache = current_cache
+        dZ = backward_activation(grads[&amp;quot;dA&amp;quot;+str(l+1)],activation_cache, layer_activations[l])
+        dA_prev, dW, db = backward_linear(dZ, linear_cache)
+
+        grads[&amp;quot;dA&amp;quot; + str(l)] = dA_prev
+        grads[&amp;quot;dW&amp;quot; + str(l + 1)] = dW
+        grads[&amp;quot;db&amp;quot; + str(l + 1)] = db
+    
+    return grads
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;update-parameters&#34;&gt;Update Parameters&lt;/h2&gt;
+&lt;p&gt;The final step is to take the gradients computed in back propagation and use them to update the parameters $W$ and $b$.&lt;/p&gt;
+&lt;p&gt;The method of updating these parameters is important and there are several optimizers that do this in different ways.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Mini-Batch Gradient Descent:
+$$ W:=W-\alpha dW $$
+$$ b:=b-\alpha db $$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;For the other optimization algorithms, the concept of exponentially weighted averages becomes an important one. An exponentially weighted average can be calculated with the following formula:
+$$v_{\theta, i} := \beta v_{\theta, i} + (1-\beta)\theta_{i}$$&lt;/p&gt;
+&lt;p&gt;Where $\theta_{i}$ are the samples in the dataset to average over. The parameter $\beta$ roughly controls how many samples to average over given by approximately $\frac{1}{1-\beta}$. Most commonly in momentum, $\beta=0.9$, which works out to averaging over the last 10 samples.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Momentum:
+$$ \begin{cases}
+v_{dW^{[l]}} := \beta v_{dW^{[l]}} + (1 - \beta) dW^{[l]} \\
+W^{[l]} := W^{[l]} - \alpha v_{dW^{[l]}}
+\end{cases}$$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$\begin{cases}
+v_{db^{[l]}} := \beta v_{db^{[l]}} + (1 - \beta) db^{[l]} \\
+b^{[l]} := b^{[l]} - \alpha v_{db^{[l]}}
+\end{cases}$$&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;RMSProp:
+$$ \begin{cases}
+s_{dW^{[l]}} := \beta s_{dW^{[l]}} + (1 - \beta) (dW^{[l]})^{2} \\
+W^{[l]} := W^{[l]} - \alpha \frac{dW^{[l]}}{\sqrt{s_{dW^{[l]}}}+\epsilon}
+\end{cases}$$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$\begin{cases}
+s_{db^{[l]}} := \beta s_{db^{[l]}} + (1 - \beta) (db^{[l]})^{2} \\
+b^{[l]} := b^{[l]} - \alpha \frac{db^{[l]}}{\sqrt{s_{db^{[l]}}}+\epsilon}
+\end{cases}$$&lt;/p&gt;
+&lt;p&gt;Note the addition of $\epsilon$ in the denominator in both RMSProp and Adam. That is to prevent NaNs or divisions by zero, it increases numerical stability. The king of the optimizers, Adam, works by combining both momentum and RMSProp. Additionally, it also adds bias correction to the exponentially weighted averages $v$ and $s$. The need for bias correction comes from the fact that as the number of samples that we average over increases, the beginning of the averaging causes the output to be very small since at the start we only have one sample and the others are initialized to zero. As such, the start of our averaging results in a much lower start than the original distribution.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Adam:
+$$\begin{cases}
+v_{dW^{[l]}} := \beta_1 v_{dW^{[l]}} + (1 - \beta_1) dW^{[l]} \\
+v^{corrected}&lt;em&gt;{dW^{[l]}} = \frac{v&lt;/em&gt;{dW^{[l]}}}{1 - (\beta_1)^t} \\
+s_{dW^{[l]}} := \beta_2 s_{dW^{[l]}} + (1 - \beta_2) (dW^{[l]})^2 \\
+s^{corrected}&lt;em&gt;{dW^{[l]}} = \frac{s&lt;/em&gt;{dW^{[l]}}}{1 - (\beta_2)^t} \\
+W^{[l]} := W^{[l]} - \alpha \frac{v^{corrected}&lt;em&gt;{dW^{[l]}}}{\sqrt{s^{corrected}&lt;/em&gt;{dW^{[l]}}} + \varepsilon}
+\end{cases}$$&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;$$\begin{cases}
+v_{db^{[l]}} := \beta_1 v_{db^{[l]}} + (1 - \beta_1) db^{[l]} \\
+v^{corrected}&lt;em&gt;{db^{[l]}} = \frac{v&lt;/em&gt;{db^{[l]}}}{1 - (\beta_1)^t} \\
+s_{db^{[l]}} := \beta_2 s_{db^{[l]}} + (1 - \beta_2) (db^{[l]})^2 \\
+s^{corrected}&lt;em&gt;{db^{[l]}} = \frac{s&lt;/em&gt;{db^{[l]}}}{1 - (\beta_2)^t} \\
+b^{[l]} := b^{[l]} - \alpha \frac{v^{corrected}&lt;em&gt;{db^{[l]}}}{\sqrt{s^{corrected}&lt;/em&gt;{db^{[l]}}} + \varepsilon}
+\end{cases}$$&lt;/p&gt;
+&lt;p&gt;The $t$ parameter in Adam included in the bias correction formula is the number of steps taken.&lt;/p&gt;
+&lt;p&gt;Besides functions to update these parameters, we also need functions to initialize them (except for gradient descent)&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;## Gradient Descent
+
+def update_parameters_gd(parameters, grads, learning_rate=0.01):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- parameters W and b
+    grads -- gradients from backprop - dW and db
+    
+    Returns:
+    parameters -- parameters W and b updated using gradient descent update rules
+    &amp;quot;&amp;quot;&amp;quot;
+    L = len(parameters) // 2 # number of layers
+
+    for l in range(L):
+        parameters[&amp;quot;W&amp;quot; + str(l+1)] = parameters[&amp;quot;W&amp;quot; + str(l+1)] - learning_rate*grads[&amp;quot;dW&amp;quot;+str(l+1)]
+        parameters[&amp;quot;b&amp;quot; + str(l+1)] = parameters[&amp;quot;b&amp;quot; + str(l+1)]- learning_rate*grads[&amp;quot;db&amp;quot;+str(l+1)]
+    
+    return parameters
+
+## Momentum
+
+def initialize_parameters_momentum(parameters):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- dictionary containing parameters W,b
+    
+    Returns:
+    velocities -- initialized velocities for momentum updates
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    L = len(parameters) // 2
+    velocities = {}
+    
+    # Initialize velocities
+    for l in range(L):
+        velocities[&amp;quot;dW&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;W&#39;+str(l+1)].shape)
+        velocities[&amp;quot;db&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;b&#39;+str(l+1)].shape)
+        
+    return velocities
+
+def update_parameters_momentum(parameters, grads, velocities, learning_rate=0.01, beta=0.9):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- parameters W and b
+    grads -- gradients from backprop - dW and db
+    velocities -- current velocities for momentum
+    
+    Returns:
+    parameters -- parameters W and b updated using momentum update rules
+    velocities -- updated velocities
+    &amp;quot;&amp;quot;&amp;quot;
+    L = len(parameters) // 2
+    
+    for l in range(L):
+        # compute velocities using exponential weighted average
+        velocities[&amp;quot;dW&amp;quot; + str(l+1)] = beta*velocities[&amp;quot;dW&amp;quot;+str(l+1)]+(1-beta)*grads[&amp;quot;dW&amp;quot;+str(l+1)]
+        velocities[&amp;quot;db&amp;quot; + str(l+1)] = beta*velocities[&amp;quot;db&amp;quot;+str(l+1)]+(1-beta)*grads[&amp;quot;db&amp;quot;+str(l+1)]
+
+        #parameter update
+        parameters[&amp;quot;W&amp;quot; + str(l+1)] = parameters[&amp;quot;W&amp;quot; + str(l+1)] - learning_rate*velocities[&amp;quot;dW&amp;quot; + str(l+1)]
+        parameters[&amp;quot;b&amp;quot; + str(l+1)] = parameters[&amp;quot;b&amp;quot; + str(l+1)] - learning_rate*velocities[&amp;quot;db&amp;quot; + str(l+1)]
+        
+    return parameters, velocities
+
+## RMSProp
+def initialize_parameters_rmsprop(parameters):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- dictionary containing parameters W,b
+    
+    Returns: 
+    squares -- initialized moving average of the squared gradient for rmsprop updates
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    L = len(parameters) // 2 
+    squares = {}
+
+    # Initialize squares
+    for l in range(L):
+        squares[&amp;quot;dW&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;W&#39;+str(l+1)].shape)
+        squares[&amp;quot;db&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;b&#39;+str(l+1)].shape)
+    
+    return squares
+    
+
+def update_parameters_rmsprop(parameters, grads, squares, learning_rate=0.01,
+                              beta=0.9, epsilon=1e-8):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- parameters W and b
+    grads -- gradients from backprop - dW and db
+    squares -- current squres of past gradients for rmsprop
+    
+    Returns:
+    parameters -- parameters W and b updated using rmsprop update rules
+    squares -- updated squares
+    &amp;quot;&amp;quot;&amp;quot;
+    L = len(parameters) // 2
+    
+    for l in range(L):
+        # compute velocities using exponential weighted average
+        squares[&amp;quot;dW&amp;quot; + str(l+1)] = beta*squares[&amp;quot;dW&amp;quot;+str(l+1)]+(1-beta)*(grads[&amp;quot;dW&amp;quot;+str(l+1)]**2)
+        squares[&amp;quot;db&amp;quot; + str(l+1)] = beta*squares[&amp;quot;db&amp;quot;+str(l+1)]+(1-beta)*(grads[&amp;quot;db&amp;quot;+str(l+1)]**2)
+
+        #parameter update
+        parameters[&amp;quot;W&amp;quot; + str(l+1)] = parameters[&amp;quot;W&amp;quot; + str(l+1)] - learning_rate*(grads[&amp;quot;dW&amp;quot;+str(l+1)]/(np.sqrt(squares[&amp;quot;dW&amp;quot; + str(l+1)])+epsilon))
+        parameters[&amp;quot;b&amp;quot; + str(l+1)] = parameters[&amp;quot;b&amp;quot; + str(l+1)] - learning_rate*(grads[&amp;quot;db&amp;quot;+str(l+1)]/(np.sqrt(squares[&amp;quot;db&amp;quot; + str(l+1)])+epsilon))
+        
+    return parameters, squares
+
+## Adam
+def initialize_parameters_adam(parameters):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- dictionary containing parameters W,b
+    
+    Returns: 
+    velocities -- initialized first gradient weighted averages for adam updates
+    squares -- initialized moving average of the squared gradient for adam updates
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    L = len(parameters) // 2 
+    velocities = {}
+    squares = {}
+
+    # Initialize velocities and squares
+    for l in range(L):
+        velocities[&amp;quot;dW&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;W&#39;+str(l+1)].shape)
+        velocities[&amp;quot;db&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;b&#39;+str(l+1)].shape)
+        squares[&amp;quot;dW&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;W&#39;+str(l+1)].shape)
+        squares[&amp;quot;db&amp;quot; + str(l+1)] = np.zeros(parameters[&#39;b&#39;+str(l+1)].shape)
+    
+    return velocities, squares
+
+def update_parameters_adam(parameters, grads, velocities, squares, t, learning_rate=0.01,
+                           beta1=0.9, beta2=0.999, epsilon=1e-8):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    parameters -- dictionary with parameters W, b
+    grads -- dictionary with gradients dW, db
+    velocities -- moving average of the first gradient
+    squares -- moving average of the squared gradient
+    t -- counter for bias correction
+    
+    Returns:
+    parameters -- updated parameters according to adam
+    velocities -- updated moving average of the first gradient
+    squares -- updated moving average of the squared gradient
+    &amp;quot;&amp;quot;&amp;quot;
+    L = len(parameters) // 2                 
+    v_corrected = {}                        
+    s_corrected = {}                         
+
+    for l in range(L):
+        #Calculate exponentially weighted velocities
+        velocities[&amp;quot;dW&amp;quot; + str(l+1)] = beta1*velocities[&amp;quot;dW&amp;quot; + str(l+1)]+(1-beta1)*grads[&amp;quot;dW&amp;quot; + str(l+1)]
+        velocities[&amp;quot;db&amp;quot; + str(l+1)] = beta1*velocities[&amp;quot;db&amp;quot; + str(l+1)]+(1-beta1)*grads[&amp;quot;db&amp;quot; + str(l+1)]
+
+        #Bias correction for velocities
+        v_corrected[&amp;quot;dW&amp;quot; + str(l+1)] = velocities[&amp;quot;dW&amp;quot; + str(l+1)]/(1-beta1**t)
+        v_corrected[&amp;quot;db&amp;quot; + str(l+1)] = velocities[&amp;quot;db&amp;quot; + str(l+1)]/(1-beta1**t)
+    
+        #Calculate exponentially weighted squares
+        squares[&amp;quot;dW&amp;quot; + str(l+1)] = beta2*squares[&amp;quot;dW&amp;quot; + str(l+1)]+(1-beta2)*grads[&amp;quot;dW&amp;quot; + str(l+1)]**2
+        squares[&amp;quot;db&amp;quot; + str(l+1)] = beta2*squares[&amp;quot;db&amp;quot; + str(l+1)]+(1-beta2)*grads[&amp;quot;db&amp;quot; + str(l+1)]**2
+        
+        #Bias correction for squares
+        s_corrected[&amp;quot;dW&amp;quot; + str(l+1)] = squares[&amp;quot;dW&amp;quot; + str(l+1)]/(1-beta2**t)
+        s_corrected[&amp;quot;db&amp;quot; + str(l+1)] = squares[&amp;quot;db&amp;quot; + str(l+1)]/(1-beta2**t)
+    
+        #Adam parameter updates
+        parameters[&amp;quot;W&amp;quot; + str(l+1)] = parameters[&amp;quot;W&amp;quot; + str(l+1)] - learning_rate*(v_corrected[&amp;quot;dW&amp;quot; + str(l+1)]/(np.sqrt(s_corrected[&amp;quot;dW&amp;quot; + str(l+1)])+epsilon))
+        parameters[&amp;quot;b&amp;quot; + str(l+1)] = parameters[&amp;quot;b&amp;quot; + str(l+1)] - learning_rate*(v_corrected[&amp;quot;db&amp;quot; + str(l+1)]/(np.sqrt(s_corrected[&amp;quot;db&amp;quot; + str(l+1)])+epsilon))
+
+    return parameters, velocities, squares
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;combining-everything-and-mini-batch-gd&#34;&gt;Combining Everything and Mini-Batch GD&lt;/h2&gt;
+&lt;p&gt;After going through each piece, we now need to combine all these functions to train a model.
+To do this, we have some input data $X$ with respective labels $Y$. Now, to implement mini-bach gradient descent, we need to split $X$ and $Y$ into $m$ mini-batches to run our algorithms on.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def mini_batches(X, Y, mini_batch_size = 64, seed = 0):
+    &amp;quot;&amp;quot;&amp;quot;
+    Arguments:
+    X -- input data
+    Y -- corresponding labels
+    mini_batch_size -- size of the mini-batches
+    seed -- used to set np.random.seed differently to get different shuffles
+    
+    Returns:
+    mini_batches -- list of (mini_batch_X, mini_batch_Y)
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    #Set seed
+    np.random.seed(seed)
+    
+    mini_batches = []
+    #Get number of examples
+    m = X.shape[1] 
+
+    idx = list(np.random.permutation(m))
+    shuffled_X = X[:, idx]
+    shuffled_Y = Y[idx, :]
+    shuffled_Y = np.reshape(shuffled_Y,(1,m))
+    
+    assert shuffled_Y.shape == (1,m)
+    
+    #Need to account for when minibatch size is divisible by m 
+    num_full_minibatch = int(math.floor(m/mini_batch_size))
+    for i in range(0, num_full_minibatch):
+
+        mini_batch_X = shuffled_X[:,mini_batch_size*i: mini_batch_size*(i+1)]
+        mini_batch_Y = shuffled_Y[:,mini_batch_size*i: mini_batch_size*(i+1)]
+        mini_batches.append((mini_batch_X, mini_batch_Y))
+    
+    # Now need to take care of extra examples of len &amp;lt; m
+    if m % mini_batch_size != 0:
+        mini_batch_X = shuffled_X[:,-(mini_batch_size-m):]
+        mini_batch_Y = shuffled_Y[:,-(mini_batch_size-m):]
+        mini_batches.append((mini_batch_X, mini_batch_Y))
+    
+    return mini_batches
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def train(X, Y, model_shape, layer_activations, optimizer, initialization_method=&#39;he&#39;, learning_rate = 0.001, mini_batch_size = 64, beta = 0.9,
+          beta1 = 0.9, beta2 = 0.999,  epsilon = 1e-8, num_epochs = 10000, print_cost = True):
+    &amp;quot;&amp;quot;&amp;quot;
+    Implementation of a Neural Network model.
+    
+    Arguments:
+    X -- input data
+    Y -- labels
+    model_shape -- python list with the size of each layer
+    layer_activations -- python list with activation of each layer
+    optimizer -- string corresponding to optimizer to use. One of &amp;quot;gd&amp;quot;,&amp;quot;momentum&amp;quot;,&amp;quot;rmsprop&amp;quot;,&amp;quot;adam&amp;quot;
+    learning_rate -- the learning rate parameter
+    mini_batch_size -- the size of each mini batch
+    beta -- Momentum/RMSProp hyperparameter
+    beta1 -- decay of past gradients parameter for adam
+    beta2 -- decay of past squared gradients for adam
+    epsilon -- hyperparameter preventing division by zero in Adam and RMSProp updates
+    num_epochs -- number of epochs
+    print_cost -- True to print the cost every 5 epochs
+
+    Returns:
+    parameters -- trained parameters
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    #Track costs
+    costs = []  
+    
+    #Adam bias correction parameter
+    t = 0                           
+    
+    #define seed for np.random.seed in mini_batch call
+    seed = np.random.randint(1000)
+    
+    #Number of layers and number of training examples
+    L = len(model_shape)
+    m = X.shape[1]
+    
+    # Initialize parameters
+    parameters = initialize_parameters(model_shape, initialization_method=initialization_method)
+
+    # Initialize parameters for optimizer
+    if optimizer == &amp;quot;gd&amp;quot;:
+        pass
+    elif optimizer == &amp;quot;momentum&amp;quot;:
+        velocities = initialize_parameters_momentum(parameters)
+    elif optimizer == &#39;rmsprop&#39;:
+        squares = initialize_parameters_rmsprop(parameters)
+    elif optimizer == &amp;quot;adam&amp;quot;:
+        velocities, squares = initialize_parameters_adam(parameters)
+    else:
+        raise NameError(&amp;quot;%s is not a valid optimizer&amp;quot; % (optimizer))
+    
+    #Loop
+    for i in range(num_epochs):
+        # Define the random minibatches. We increment the seed to reshuffle differently the dataset after each epoch
+        seed = seed + 1
+        minibatches = mini_batches(X, Y, mini_batch_size, seed)
+
+        #Get cost over all batchs
+        total_cost = 0
+
+        for minibatch in minibatches:
+
+            # Unpack
+            (minibatch_X, minibatch_Y) = minibatch
+
+            # Forward propagation pass
+            AL, caches = forward_prop(minibatch_X, layer_activations, parameters)
+
+            #Get minibatch cost
+            cost_batch = cost(AL, minibatch_Y)
+
+            #Add to total cost
+            total_cost+=cost_batch
+
+            # Backward propagation pass
+            grads = backward_prop(AL, minibatch_Y, caches, layer_activations)
+            
+            # Update parameters
+            if optimizer == &amp;quot;gd&amp;quot;:
+                parameters = update_parameters_gd(parameters, grads, learning_rate=learning_rate)
+            elif optimizer == &amp;quot;momentum&amp;quot;:
+                parameters, velocities = update_parameters_momentum(parameters,grads,
+                                                                    velocities,learning_rate=learning_rate,
+                                                                    beta=beta)
+            elif optimizer == &amp;quot;rmsprop&amp;quot;:
+                parameters, squares = update_parameters_rmsprop(parameters, grads, squares,
+                                                                learning_rate=learning_rate, beta=beta,
+                                                                epsilon=epsilon)
+            elif optimizer == &amp;quot;adam&amp;quot;:
+                #Increment bias correction parameter
+                t = t + 1
+                parameters, velocities, squares = update_parameters_adam(parameters, grads,
+                                                                         velocities, squares,
+                                                               t, learning_rate=learning_rate,
+                                                                         beta1=beta1, beta2=beta2,
+                                                                         epsilon=epsilon)
+        mean_cost = total_cost / float(mini_batch_size)
+        
+        # Print the cost every 5 epoch
+        if print_cost and i % 5 == 0:
+            print (&amp;quot;Cost after epoch %i: %f&amp;quot; %(i, mean_cost))
+        if print_cost and i % 1 == 0:
+            costs.append(mean_cost)
+                
+    # plot the cost
+    fig, ax = plt.subplots()
+    fig.set_facecolor(&#39;w&#39;)
+    fig.set_size_inches(12,9)
+    ax.plot(costs)
+    ax.set_ylabel(&#39;Cost&#39;)
+    ax.set_xlabel(&#39;Epoch&#39;)
+    plt.title(&amp;quot;Learning rate = %s, Optimizer = %s&amp;quot; % (learning_rate, optimizer))
+    plt.show()
+
+    return parameters
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h2 id=&#34;testing-the-model&#34;&gt;Testing the Model&lt;/h2&gt;
+&lt;p&gt;Now that the implementation is complete, let&amp;rsquo;s test the model by doing binary classification on two handwritten digits from the MNIST dataset.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;from tensorflow.keras.datasets import mnist
+(X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+
+img_shape = X_train.shape[1:]
+
+print(&#39;X_train has shape %s\nY_train has shape %s&#39;%(X_train.shape, Y_train.shape))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;X_train has shape (60000, 28, 28)
+Y_train has shape (60000,)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Convert Y_train and Y_test to (m,1)
+Y_train = Y_train.reshape(Y_train.shape[0],1)
+Y_test = Y_test.reshape(Y_test.shape[0],1)
+
+#Visualize one Entry
+i = np.random.randint(X_train.shape[0])
+
+fig,ax = plt.subplots()
+fig.set_facecolor(&#39;w&#39;)
+
+ax.imshow(X_train[i])
+ax.set_title(&#39;Label = &#39; + str(Y_train[i]))
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./numpy_neural_nets_23_0.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Choose two classes for our classification model
+class_a = 3 #Positive Class
+class_b = 7 #Negative Class
+
+#Filter out the dataset to include only images in those classes
+idx = np.logical_or(np.squeeze(Y_train) == class_a, np.squeeze(Y_train) == class_b)
+X_train, Y_train = X_train[idx], Y_train[idx]
+#Assign class_a = 1 and class_b=0
+Y_train[np.where(Y_train == class_a)] = 1.00
+Y_train[np.where(Y_train == class_b)] = 0.00
+
+print(&#39;X_train has shape %s\nY_train has shape %s&#39;%(X_train.shape, Y_train.shape))
+
+idx = np.logical_or(np.squeeze(Y_test) == class_a, np.squeeze(Y_test) == class_b)
+X_test, Y_test = X_test[idx], Y_test[idx].astype(np.float64)
+#Assign class_a = 1 and class_b=0
+Y_test[np.where(Y_test == class_a)] = 1.00
+Y_test[np.where(Y_test == class_b)] = 0.00
+print(&#39;X_test has shape %s\nY_test has shape %s&#39;%(X_test.shape, Y_test.shape))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;X_train has shape (12396, 28, 28)
+Y_train has shape (12396, 1)
+X_test has shape (2038, 28, 28)
+Y_test has shape (2038, 1)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Reshape X_train and X_test into (m, 28*28)
+X_train_flat = X_train.reshape(X_train.shape[0], -1).T  
+X_test_flat = X_test.reshape(X_test.shape[0], -1).T
+
+# Standardize data to have feature values between 0 and 1.
+X_train_norm = X_train_flat/255.
+X_test_norm = X_test_flat/255.
+
+print (&amp;quot;X_train&#39;s shape: &amp;quot; + str(X_train_norm.shape))
+print (&amp;quot;X_test&#39;s shape: &amp;quot; + str(X_test_norm.shape))
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;X_train&#39;s shape: (784, 12396)
+X_test&#39;s shape: (784, 2038)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&#34;defining-our-model&#34;&gt;Defining our Model&lt;/h3&gt;
+&lt;p&gt;I&amp;rsquo;ve chosen to create a model to classify either a $3$ or a $7$. Now, let&amp;rsquo;s define a model.&lt;/p&gt;
+&lt;p&gt;The output is either $1$ or $0$, where $1$ corresponds to a $3$ and $0$ corresponds to a $7$. This means the last layer dimension needs to be $1$.
+For the first dimension, that should be $28\times28\times1=784$, since we&amp;rsquo;re taking the image and stacking each row of pixels ontop of each other (flattening).
+For our hidden layer, I&amp;rsquo;ll choose $n_h=7$
+So we have a three layer model - $784\times7\times1$ with layer activations ReLU-ReLU-Sigmoid.&lt;/p&gt;
+&lt;p&gt;We can compare the performance of gradient descent versus adam optimization. Let&amp;rsquo;s start with gradient descent.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Model Parameters
+n_x = X_train_norm.shape[0]
+n_y = 1
+n_h = 7
+model_shape = (n_x, n_h, n_y)
+
+layer_activations = [&#39;relu&#39;,&#39;relu&#39;,&#39;sigmoid&#39;]
+optimizer = &#39;gd&#39;
+
+learning_rate = 0.0005
+
+parameters = train(X_train_norm,Y_train, model_shape, layer_activations, optimizer,
+                   learning_rate=learning_rate, mini_batch_size=128, num_epochs=17)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Cost after epoch 0: 0.458453
+Cost after epoch 5: 0.259276
+Cost after epoch 10: 0.162094
+Cost after epoch 15: 0.085669
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./numpy_neural_nets_27_1.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;h2 id=&#34;evaluating-our-model&#34;&gt;Evaluating our Model&lt;/h2&gt;
+&lt;p&gt;Now that the model has trained, we need some way of assessing the performance of our model. This is done with our testing set: $(X_{\text{test}}, Y_{\text{test}})$
+Essentially, we just need to feed $X_{\text{test}}$ through our model&amp;rsquo;s forward pass, which outputs $A^{[L]}=\hat{Y}$, our predictions. Then we simply compare $\hat{Y}$ with $Y_{\text{test}}$ and evaluate the accuracy as $A=\frac{\text{# correct}}{\text{# total}}$.
+Additionally, I&amp;rsquo;ll return the indices where the model predicted correctly, and where it predicted incorrectly, to visualize the model&amp;rsquo;s shortcomings.&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def evaluate(X_test, Y_test, layer_activations, parameters, threshold=0.5):
+    &amp;quot;&amp;quot;&amp;quot;
+    Evaluates performance of trained model on test set
+    
+    Attributes:
+    X_test -- Test set inputs
+    Y_test -- Test set labels
+    layer_activations -- python list of strings corresponding to activation functions of layer l
+    parameters -- trained parameters W, b
+    
+    Returns:
+    correct -- list of booleans corresponding to the indices of correct predictions
+    incorrect -- list of booleans correspondingin to the indices of incorrect predictions
+    &amp;quot;&amp;quot;&amp;quot;
+    
+    #Number of test samples
+    m = X_test.shape[1]
+    
+    assert Y_test.shape == (1,m)
+    
+    Y_pred, _ = forward_prop(X_test, layer_activations, parameters)
+    
+    #Threshold
+    Y_pred[Y_pred&amp;gt;threshold]=1.
+    Y_pred[Y_pred&amp;lt;=threshold]=0
+    
+    num_correct = np.sum(Y_pred == Y_test)
+    num_incorrect = m-num_correct
+    print(&amp;quot;Accuracy: %f&amp;quot; % (float(num_correct)/m))
+    
+    correct = Y_pred == Y_test
+    incorrect = Y_pred != Y_test
+    
+    return np.squeeze(correct), np.squeeze(incorrect)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Evaluate
+correct, incorrect = evaluate(X_test_norm, Y_test.T, layer_activations, parameters)
+
+#Get correect predictions
+X_correct = X_test[correct]
+Y_correct = Y_test[correct]
+
+#Get incorrect predictions
+X_incorrect = X_test[incorrect]
+Y_incorrect = Y_test[incorrect]
+
+fig,ax = plt.subplots(3,2)
+fig.set_size_inches(12,18)
+fig.set_facecolor(&#39;w&#39;)
+
+i_correct = np.random.randint(len(X_correct), size=3)
+i_incorrect = np.random.randint(len(X_incorrect), size=3)
+
+for i in range(3):
+    ax[i,0].imshow(X_correct[i_correct[i]])
+    ax[i,0].set_title(&amp;quot;%i: Correctly predicted Y=%i&amp;quot;%(i_correct[i],class_a*Y_correct[i_correct[i]][0] + (1-Y_correct[i_correct[i]][0])*class_b))
+    
+    ax[i,1].imshow(X_incorrect[i_incorrect[i]])
+    ax[i,1].set_title(&amp;quot;%i: Incorrectly predicted Y=%i&amp;quot;%(i_incorrect[i],class_b*Y_incorrect[i_incorrect[i]][0] + (1-Y_incorrect[i_incorrect[i]][0])*class_a))
+    
+    ax[i,0].xaxis.set_visible(False)
+    ax[i,0].yaxis.set_visible(False)
+    ax[i,1].xaxis.set_visible(False)
+    ax[i,1].yaxis.set_visible(False)
+
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Accuracy: 0.964671
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./numpy_neural_nets_30_1.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;h3 id=&#34;adam-optimization&#34;&gt;Adam Optimization&lt;/h3&gt;
+&lt;p&gt;Now that we&amp;rsquo;ve gotten results using Gradient Descent, Let&amp;rsquo;s compare it with adam optimization&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Model Parameters
+n_x = X_train_norm.shape[0]
+n_y = 1
+n_h = 7
+model_shape = (n_x, n_h, n_y)
+
+layer_activations = [&#39;relu&#39;,&#39;relu&#39;,&#39;sigmoid&#39;]
+optimizer = &#39;adam&#39;
+
+learning_rate = 0.0005
+
+parameters = train(X_train_norm,Y_train, model_shape, layer_activations, optimizer,
+                   learning_rate=learning_rate, mini_batch_size=128, num_epochs=5)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Cost after epoch 0: 0.347253
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./numpy_neural_nets_32_1.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;#Evaluate
+correct, incorrect = evaluate(X_test_norm, Y_test.T, layer_activations, parameters)
+
+#Get correect predictions
+X_correct = X_test[correct]
+Y_correct = Y_test[correct]
+
+#Get incorrect predictions
+X_incorrect = X_test[incorrect]
+Y_incorrect = Y_test[incorrect]
+
+fig,ax = plt.subplots(3,2)
+fig.set_size_inches(12,18)
+fig.set_facecolor(&#39;w&#39;)
+
+i_correct = np.random.randint(len(X_correct), size=3)
+i_incorrect = np.random.randint(len(X_incorrect), size=3)
+
+for i in range(3):
+    ax[i,0].imshow(X_correct[i_correct[i]])
+    ax[i,0].set_title(&amp;quot;%i: Correctly predicted Y=%i&amp;quot;%(i_correct[i],class_a*Y_correct[i_correct[i]][0] + (1-Y_correct[i_correct[i]][0])*class_b))
+    
+    ax[i,1].imshow(X_incorrect[i_incorrect[i]])
+    ax[i,1].set_title(&amp;quot;%i: Incorrectly predicted Y=%i&amp;quot;%(i_incorrect[i],class_b*Y_incorrect[i_incorrect[i]][0] + (1-Y_incorrect[i_incorrect[i]][0])*class_a))
+    
+    ax[i,0].xaxis.set_visible(False)
+    ax[i,0].yaxis.set_visible(False)
+    ax[i,1].xaxis.set_visible(False)
+    ax[i,1].yaxis.set_visible(False)
+plt.show()
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;Accuracy: 0.969578
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;&lt;img src=&#34;./numpy_neural_nets_33_1.png&#34; alt=&#34;png&#34;&gt;&lt;/p&gt;
+&lt;h3 id=&#34;comparison&#34;&gt;Comparison&lt;/h3&gt;
+&lt;p&gt;As we can see, using the adam optimizer yielded better accuracy in nearly one third of the number of epochs.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>UBC Open Robotics</title>
+      <link>https://Fquico1999.github.io/project/openrobotics/</link>
+      <pubDate>Fri, 05 Jun 2020 15:18:22 -0700</pubDate>
+      <guid>https://Fquico1999.github.io/project/openrobotics/</guid>
+      <description>&lt;p&gt;&lt;em&gt;&lt;em&gt;The results for the Robocup@Home Education 2020 Online Competition are out! Check out our standing 
+&lt;a href=&#34;#result_2020&#34;&gt;below.&lt;/a&gt;&lt;/em&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;&lt;em&gt;&lt;em&gt;
+&lt;a href=&#34;#contrib&#34;&gt;Click here&lt;/a&gt; if you want to skip to my involvement in this team.&lt;/em&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;h2 id=&#34;overview&#34;&gt;Overview&lt;/h2&gt;
+&lt;p&gt;
+&lt;a href=&#34;http://www.ubcopenrobotics.ca/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;UBC Open Robotics&lt;/a&gt; is a student team comprised of 60 students split into three subteams - ArtBot, PianoBot, and Robocup@Home. I am a member of the software team in the RoboCup@Home subteam.&lt;/p&gt;
+&lt;p&gt;The objective of RoboCup@Home is to build a household assistant robot that can perform a variety of tasks, including carrying bags, introducing and seating guests at a party, answering a variety of trivia questions and more. Open Robotics is developing a robot to compete in the 2021 
+&lt;a href=&#34;https://www.robocupathomeedu.org/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;RoboCup@Home Education Challenge&lt;/a&gt; while in the meantime, our subteam will compete in the 2020 Competition using the Turtlebot 2 as our hardware platform.&lt;/p&gt;
+&lt;h2 id=&#34;the-challenge&#34;&gt;The Challenge&lt;/h2&gt;
+&lt;p&gt;&lt;a name=&#34;task1&#34;&gt;&lt;/a&gt;
+The rules for the 2020 Challenge can be found 
+&lt;a href=&#34;https://docs.google.com/document/d/1aNPdZDvf9X4HHF13eSge_eHDP9NmC6UDqeYDM9Xyjcg/edit&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;here&lt;/a&gt;, but they boil down to three specific tasks:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Carry My Luggage - Navigation task&lt;/li&gt;
+&lt;li&gt;Find My Mates - Vision task&lt;/li&gt;
+&lt;li&gt;Receptionist - Speech task&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h4 id=&#34;carry-my-luggage&#34;&gt;Carry My Luggage&lt;/h4&gt;
+&lt;p&gt;&lt;em&gt;Goal: The robot helps the operator to carry a bag to the car parked outside&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;Starting at a predifined location, the robot has to find the operator and pick up the bag the operator is pointing to. After picking up the bag, the robot needs to indicate that it is ready to follow and then it must follow the operator while facing 4 obstacles along the way (crowd, small object, difficult to see 3D object, small blocked area).&lt;/p&gt;
+&lt;h4 id=&#34;find-my-mates&#34;&gt;Find My Mates&lt;/h4&gt;
+&lt;p&gt;&lt;em&gt;Goal: The robot fetches the information of the party guests for the operator who knows only the names
+of the guests.&lt;/em&gt;
+&lt;a name=&#34;task3&#34;&gt;&lt;/a&gt;
+Knowing only the operator, the robot must identify unknown people and meet those that are waving. Afterwards, it must remember the person and provide a unique description of that person, as well as that person&amp;rsquo;s location, to the operator.&lt;/p&gt;
+&lt;h4 id=&#34;receptionist&#34;&gt;Receptionist&lt;/h4&gt;
+&lt;p&gt;&lt;em&gt;Goal: The robot has to take two arriving guests to the living room, introducing them to each other,
+and offering the just-arrived guest an unoccupied place to sit.&lt;/em&gt;
+&lt;a name=&#34;contrib&#34;&gt;&lt;/a&gt;
+Knowing the host of the party, John, the robot must identify unknown guests, request their names and favourite drinks and then point to an empty seat where the guest can sit.&lt;/p&gt;
+&lt;h2 id=&#34;my-contributions&#34;&gt;My Contributions&lt;/h2&gt;
+&lt;p&gt;My main contributions have been in speech recognition and in handle segmentation, targeting 
+&lt;a href=&#34;#task3&#34;&gt;task 3&lt;/a&gt; and 
+&lt;a href=&#34;#task1&#34;&gt;task 1&lt;/a&gt; respectively, however I also worked on facial recognition earlier in the project.&lt;/p&gt;
+&lt;h3 id=&#34;speech-recognition&#34;&gt;Speech Recognition&lt;/h3&gt;
+&lt;p&gt;&lt;em&gt;You can find this repository 
+&lt;a href=&#34;https://github.com/UBC-OpenRobotics/SpeechRecognition&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;here&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;Speech recognition is implemented using 
+&lt;a href=&#34;https://github.com/cmusphinx/pocketsphinx&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;PocketSphinx&lt;/a&gt; which is based on 
+&lt;a href=&#34;https://cmusphinx.github.io/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;CMUSphinx&lt;/a&gt;. Which offers two modes of operation - Keyword Spotting (KWS) and Language Model (LM).&lt;/p&gt;
+&lt;h4 id=&#34;kws&#34;&gt;KWS&lt;/h4&gt;
+&lt;p&gt;Keyword spotting tries to detect specific keywords or phrases, without imposing any type of grammer rules ontop.
+Utilizing keyword spotting requires a .dic file and a .kwslist file.&lt;/p&gt;
+&lt;p&gt;The dictionary file is a basic text file that contains all the keywords and their phonetic pronunciation, for instance:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;BACK	B AE K
+FORWARD	F AO R W ER D
+FULL	F UH L
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;These files can be generated 
+&lt;a href=&#34;http://www.speech.cs.cmu.edu/tools/lextool.html&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;here&lt;/a&gt; .&lt;/p&gt;
+&lt;p&gt;The .kwslist file has each keyword and a certain threshold, more or less corresponding to the length of the word or phrase, as follows:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;BACK /1e-9/
+FORWARD /1e-25/
+FULL SPEED /1e-20/
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h4 id=&#34;lm&#34;&gt;LM&lt;/h4&gt;
+&lt;p&gt;Language model mode additionally imposes a grammer. To utilize this mode, .dic, .lm and .gram files are needed.&lt;/p&gt;
+&lt;p&gt;The dictionary file is the same as in KWS mode.&lt;/p&gt;
+&lt;p&gt;The .lm file can be generated, along with the .dic file, from a corpus of text, using 
+&lt;a href=&#34;http://www.speech.cs.cmu.edu/tools/lmtool-new.html&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;this tool&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;generate_corpus.py&lt;/code&gt; script in &lt;code&gt;SpeechRecognition/asr/resources&lt;/code&gt; sifts through the resource files from robocup&amp;rsquo;s GPSRCmdGenerator and creates a corpus. The .dic and .lm files are generated from it by using the above tool.&lt;/p&gt;
+&lt;p&gt;Finally, the .gram file specifies the grammer to be imposed. For instance, if the commands we are expecting are always an action followed by an object or person and then a location, it might look like:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;public &amp;lt;rule&amp;gt; = &amp;lt;actions&amp;gt; [&amp;lt;objects&amp;gt;] [&amp;lt;names&amp;gt;] [&amp;lt;locations&amp;gt;];
+
+&amp;lt;actions&amp;gt; = MOVE | STOP | GET | GIVE
+
+&amp;lt;objects&amp;gt; = BOWL | GLASS
+
+&amp;lt;names&amp;gt; = JOE | JOEBOB
+
+&amp;lt;locations&amp;gt; = KITCHEN | BEDROOM
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;h3 id=&#34;handle-segmentation&#34;&gt;Handle Segmentation&lt;/h3&gt;
+&lt;p&gt;&lt;em&gt;You can find this repository 
+&lt;a href=&#34;https://github.com/UBC-OpenRobotics/HandleSegmentation&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;here&lt;/a&gt;&lt;/em&gt;&lt;/p&gt;
+&lt;p&gt;To be able to accurately pick up a bag, the robot must be able to detect where its handle is, as well as some information on how wide it is. To accomplish this, I trained a UNet model to segment images of handles.&lt;/p&gt;
+&lt;p&gt;UNet models are models that take as input an image and output a mask defining a region of interest. Producing data for these models requires labelling regions of interest on a variety of images. For that purpose I used two tools - 
+&lt;a href=&#34;http://labelme.csail.mit.edu/Release3.0/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;LableMe&lt;/a&gt; or in 
+&lt;a href=&#34;https://www.makesense.ai/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;MakeSense.ai&lt;/a&gt;.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;history.jpg&#39; alt=&#39;training history&#39; width=&#34;700&#34;/&gt;
+    &lt;figcaption&gt;Training History for the Handle Segmentation Model&lt;/figcaption&gt;
+&lt;/figure&gt; 
+&lt;p&gt;After training, model inference on the test set was promising.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;handle_prediction_good.jpg&#39; alt=&#39;Test set inference&#39; width=&#34;800&#34;/&gt;
+    &lt;figcaption&gt;Model Inference on Test Set: input image on the left, model prediction in the center and ground truth on the right&lt;/figcaption&gt;
+&lt;/figure&gt; 
+&lt;p&gt;Additionally, some processing was done on the mask to obtain candidates for the apex of the handle, and its width. This allowed the model to output where the arm should grasp, like the sequence below. Additional work will be done to integrate the RGBD depth layer to obtain a depth location of the handle.&lt;/p&gt;
+&lt;p&gt;&lt;a name=&#34;result_2020&#34;&gt;&lt;/a&gt;
+
+
+
+
+  
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+&lt;video autoplay loop &gt;
+  &lt;source src=&#34;https://Fquico1999.github.io/img/openrobotics_handleseg.mp4&#34; type=&#34;video/mp4&#34;&gt;
+&lt;/video&gt;&lt;/p&gt;
+&lt;h2 id=&#34;2020-robocuphome-education-online-challenge&#34;&gt;2020 RoboCup@Home Education Online Challenge&lt;/h2&gt;
+&lt;p&gt;We (the software subteam) participated in the 2020 Online Challenge since it is the team&amp;rsquo;s goal to develop our own hardware platform for 2021. Meanwhile, we put our software progress to the test on the Turtlebot2 platform.&lt;/p&gt;
+&lt;p&gt;Out of 8 finalists, we ended up in second place in the open category (meaning open hardware category), and first place in people&amp;rsquo;s choice.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;openrobotics_finals_open_plat.png&#39; alt=&#39;open_category_finish&#39; width=&#34;700&#34;/&gt;
+&lt;/figure&gt; 
+&lt;figure&gt;
+    &lt;img src=&#39;openrobotics_finals_peoples_choice.png&#39; alt=&#39;peoples_choice_finish&#39; width=&#34;700&#34;/&gt;
+&lt;/figure&gt; </description>
+    </item>
+    
+    <item>
+      <title>Machine Learning Competition</title>
+      <link>https://Fquico1999.github.io/project/enph353/</link>
+      <pubDate>Fri, 05 Jun 2020 15:18:04 -0700</pubDate>
+      <guid>https://Fquico1999.github.io/project/enph353/</guid>
+      <description>&lt;h2 id=&#34;overview&#34;&gt;Overview&lt;/h2&gt;
+&lt;p&gt;ENPH 353 is a project course designed to teach machine learning techinques with an end-of-term competition. The premise of the competition is to develop algorithms that allow a simulated robot to traverse a parking lot and correctly identify locations and number plates of parked cars while avoiding pedestrians and a moving vehicle. The simulation took place in 
+&lt;a href=&#34;http://gazebosim.org/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;Gazebo&lt;/a&gt; in 
+&lt;a href=&#34;https://www.ros.org/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;ROS&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&#34;the-competition&#34;&gt;The Competition&lt;/h2&gt;
+&lt;p&gt;The image above shows the parking lot for the competition. The robot is the white, square car. It&amp;rsquo;s task is to drive on the roads while collecting the license plates on the blue rectangular cars. Additionally, it must avoid pedestrians and the truck driving around the inside track.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;license_plate.png&#39; alt=&#39;license plate&#39; width=&#34;200&#34;/&gt;
+    &lt;figcaption&gt;Example license plate&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;The license plates hold two pieces of information, the position of the car marked with the larger P1 above, and a BC auto-generated license plate with two letters and two numbers.&lt;/p&gt;
+&lt;p&gt;The inputs to the system were the images captured by a camera mounted on the robot&amp;rsquo;s frame and as outputs the robot would publish velociy commands to guide the robot as well as positions and license plate data to a server for scoring.&lt;/p&gt;
+&lt;p&gt;The scores are determined by the following:&lt;/p&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Rules&lt;/th&gt;
+&lt;th style=&#34;text-align:center&#34;&gt;Points&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Correctly record license plate and position for a car on outside track&lt;/td&gt;
+&lt;td style=&#34;text-align:center&#34;&gt;+6&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Correctly record license plate and position for a car on inside track&lt;/td&gt;
+&lt;td style=&#34;text-align:center&#34;&gt;+8&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;More than two wheels outside of the track&lt;/td&gt;
+&lt;td style=&#34;text-align:center&#34;&gt;-2&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Collide with white pick-up truck&lt;/td&gt;
+&lt;td style=&#34;text-align:center&#34;&gt;-5&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Hit pedestrian&lt;/td&gt;
+&lt;td style=&#34;text-align:center&#34;&gt;-10&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Drive one full loop around the outer track&lt;/td&gt;
+&lt;td style=&#34;text-align:center&#34;&gt;+5&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h2 id=&#34;the-strategy&#34;&gt;The Strategy&lt;/h2&gt;
+&lt;h3 id=&#34;yolo&#34;&gt;YOLO&lt;/h3&gt;
+&lt;p&gt;I decided to use the 
+&lt;a href=&#34;https://pjreddie.com/darknet/yolo/&#34; target=&#34;_blank&#34; rel=&#34;noopener&#34;&gt;YOLO&lt;/a&gt; framework to allow the robot to understand it&amp;rsquo;s environment. Yolo stands for &amp;ldquo;You Only Look Once&amp;rdquo;, and is a state of the art object detection system. I used YOLOv3 to obtain labeled bounding boxes around classes of interest, namely the blue parked cars, pedestrians, the truck, and license plates.&lt;/p&gt;
+&lt;p&gt;YOLO works by taking an image and dividing into smaller subsections, and predicting locations and accuracies for bounding boxes of a certain class. The advantage of using YOLO is that it is incredibly fast compared to other classifier models, allowing us to obtain near real-time predictions.&lt;/p&gt;
+&lt;p&gt;Training the model required around 200 labeled images taken from simulation video, trained for about 25000 iterations. In ROS, a node subscribes to the camera feed and passes the images through yolo. A YoloElement message was made to store each bounding box for each class, and publish it to a yolo node. This node informs pedestrian logic and gives bounding boxes for the license plate detection as well.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;yolo.png&#39; alt=&#39;yolo output&#39; width=&#34;600&#34;/&gt;
+    &lt;figcaption&gt;YOLO Output - The robot is waiting at the cross section. It detects the pedestrian as well as the car and license plate ahead.&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h3 id=&#34;navigation&#34;&gt;Navigation&lt;/h3&gt;
+&lt;p&gt;The main components of the robot&amp;rsquo;s navigation are the driver and controller.&lt;/p&gt;
+&lt;h4 id=&#34;driver&#34;&gt;Driver&lt;/h4&gt;
+&lt;p&gt;The essential method for Karen’s driving was &lt;code&gt;get_twist()&lt;/code&gt;. This method used computer vision techniques to return a Twist command (Twist is a message that contains all the velocities of the robot) which would be called by the controller to drive the robot. The driver has three main approaches to following the road.&lt;/p&gt;
+&lt;p&gt;The first two approaches are very similar. The robot can follow the road by either looking at the right edge or the left edge of the road and following it. These approaches are mirror, so the following is a list of steps taken to perform right edge following:&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;Scale input image to a smaller size and apply HSV mask to filter out the road.&lt;/li&gt;
+&lt;li&gt;Find the first pixel of a road from the right-hand side at an upper and lower location.&lt;/li&gt;
+&lt;li&gt;Compare these pixel locations to the expected locations to determine the current error.&lt;/li&gt;
+&lt;li&gt;If the error magnitude exceeds a threshold, turn left if the error is negative, or right if the error is positive, otherwise, drive straight.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;driver_1.png&#39; alt=&#39;yolo output&#39; width=&#34;300&#34;/&gt;
+    &lt;figcaption&gt;Driving Straight - the relative difference in white lines is within the threshold.&lt;/figcaption&gt;
+    &lt;img src=&#39;driver_2.png&#39; alt=&#39;yolo output&#39; width=&#34;300&#34;/&gt;
+    &lt;figcaption&gt;Left Turn - the relative difference causes a negative error, robot will turn left.&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;p&gt;This method was found to be robust. Even when starting off the road, the robot will turn and navigate towards the road, and begin following the edge. However, general navigation and knowing which way to drive is not solved by this approach. The controller must solve these challenges. Note, to follow the left edge, the white lines are flipped about the y-axis in the above figures.&lt;/p&gt;
+&lt;p&gt;The third approach of road following is to use the “center of mass” of the road. This method is not as robust as the above edge following. However, this approach is necessary when the edges of the road are misleading. This approach follows a similar idea as edge following, except it differs in steps 2 and 3:&lt;/p&gt;
+&lt;ol start=&#34;2&#34;&gt;
+&lt;li&gt;Threshold the image so that the road is a binary mask.&lt;/li&gt;
+&lt;li&gt;Use OpenCV to compute the moments of the image, then compare the x coordinate of the center of mass of the road with the center of the image to get the error.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;In general, each of these approaches could follow the road successfully. It is up to the controller to decide when to use each approach.&lt;/p&gt;
+&lt;h4 id=&#34;controller&#34;&gt;Controller&lt;/h4&gt;
+&lt;p&gt;The robot&amp;rsquo;s controller makes decisions about when and where to turn, when to stop for pedestrians, and when to stop for the pick-up truck. The following is a flow chart illustrating the state diagram of the controller:&lt;/p&gt;
+&lt;p&gt;&lt;svg xmlns=&#34;http://www.w3.org/2000/svg&#34; xmlns:xlink=&#34;http://www.w3.org/1999/xlink&#34; version=&#34;1.1&#34; width=&#34;631px&#34; viewBox=&#34;-0.5 -0.5 631 791&#34; content=&#34;&amp;lt;mxfile host=&amp;quot;app.diagrams.net&amp;quot; modified=&amp;quot;2020-06-12T02:21:46.131Z&amp;quot; agent=&amp;quot;5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.132 Safari/537.36&amp;quot; etag=&amp;quot;NDhWZBUGkTZ4FVD42Wzh&amp;quot; version=&amp;quot;13.2.3&amp;quot; type=&amp;quot;device&amp;quot;&amp;gt;&amp;lt;diagram id=&amp;quot;C5RBs43oDa-KdzZeNtuy&amp;quot; name=&amp;quot;Page-1&amp;quot;&amp;gt;7Vxbc5s4FP41ntl9SAckbn5srpvd9LJJumn6JoNss8HIC6Rx+utXMhIGSY5JbUTidCYzQbIQcG7fd44EA3g0W5xlaD79QCKcDIAVLQbweACA7QAwYH9W9Fj2BA7vmGRxxAetOq7iH5h3Wrz3Po5w3hhYEJIU8bzZGZI0xWHR6ENZRh6aw8YkaV51jiZY6bgKUaL23sRRMeVPAfxV/x84nkzFlW1vWP4yQ2Iwf5J8iiLyUOuCJwN4lBFSlEezxRFOmPCEXG7OH2+Sizvv7M+/8//Ql8O/rj/+c1BOdvqcU6pHyHBa7HZqrsvvKLnn8uLPWjwKAWbkPo0wm8QawMNpMUvooU0P/8VF8cgVju4LQrtIVkzJhKQouSBkzseNSVrwYTZr4zR6zxRL26OEhHdl12mcJPwatMXHB7SVFxm5q3THJqgUwQYnaISTQxTeTZY3ekQSktGfUpJiNlVEjYE/y+rmTla9hy1lK0wXZRPMx52dFdFiGi2ybx/9b8d4PP9s3XIdWOy6NfvjGjnDZIaL7JEOyHCCivh700gRt/VJNa469TOJ6f0BS/gl5BfiXgmFkYopcnKfhZifVbcKaSLgbJiofGJlInpQe55V19Lo9AaolVcLA9ysw6aJao1QY6w1U9Yqrb1VlMLebBUbrWdbY2lo57mqsBRVnCxiZirXB+dpgbOchueYpE8ECCbKh2lc4Ks5WsrjgWJKU9Jj6ubCRwcARggH47Dy8tovXhjg0bjSzXecFXjxE9pRpSlmCZqWD4a8/bCCCVug2LQGEZ7VkQKcN+EL3QREB7hNbdpm45jt9KErTB30Kzv9nctbt7VfjhcCUFnjkTeM6LdNrHONGAIcGjYExYkvl6EDWEzz9N8pSRLKXoD1GWcxvRrO9iWiQv+lRVRvHwOoa4hM6P0LuhJhbBloKeVHj7VhczYgf+I6EsO1fSm92TBe3NfKfMo72Kmz+4qzfyRak7tgWUrTTFAST1J6HGJGrmgHc8iYJq7v+Q+zOIpKi8R5/AONlvMxm+Sio5O7hwP3+CmP5lk1P3lQ5bJ1Y1zvOWs9/cB6B30BecLby9aW5hU05jxwvOYEZDzOcSdxe9gnfts19F5heT/43Tq8WHoT2dIA3DV+bwq/XcWlrzBeonWEKaTGiLrmqYrYUzIb3efPRuvxeAxCLVpH3shzvS7R2pMEDTVoDTVoHXSF1jbsxQdTeu9f643SC4Er2is/XLaMEWlTVYM1jhj8XGXouUCvXMdyuwduWy123KBlseNLWsTL848ykufUsHZJzrEdudjXufvQ8yHq0t1dILm7o3F3YJKc27Yi27eaMrf29G0xdzuFqcXaW5wrSqSGW3RHdZlGc76a0KG7OFJUsl3VXRyNt8hBcnfCD14LQV0HqH7vgGo0c94WB0Uha13Cq+AmNICb4FfMNlu+dE3XsdX8h7KUBIcFo0IemjGCk47y+VLE1gXK2c3TXxIW80cZPZqwo2VxM14WN62LmAb+HOvHUWnhfcmo5NJYoKFYrgY05BL17kBjqGhTU6DaC8CuHEWETytQhK/LZjsDbFEQewtsqVpkEcLXWL5RtgR6WY7rGnMAbElggBlw8iyz4OT0wz4En+X0o2K0G+hshPJpVSd4Mabh9JpCitusBcULPNasjso84beTtCQT52m6/H+dofDud5U2vNKlU28N7eutOiM2SL7efLPvdBO0TTdLpzCeb0oFQQ8+vcAqj3cdAwusoNdluZeUb7a2JtjNupyC/Yb31QA1MT1PV3gg48VlnE72Ja0MJGzQbKsJNNDQ2TqdWKR/A1ml44Om1YsaeF9ZJexljbTr4CZEuDm4gT7ZK+wXjRqcCPS7S6S1xrbON9Zs95LYiC/wwRAcieevxcBqY+clQRH9d/RBRZ/9yE78ttkJ7CwMqtts97i41txo5/VdXIN7WVyDoC0GmSmuBYYJNuxls/Q+JfztLWgnmLhtwh/YGxaY10Bspwm/kOGv9cftd3T6vgamddlKZ+uPUE3aT+M0XtbFZYHnUzRnh1O8QDSGMMStXpCpeqt3ZsDzFROEWK+YUeA6rtWlYqStGoEmgx8apU+tXlzYC/bkBMOmUwxtRfZmM3i1erLH1FUyfK9n6uq4fZCcxkrgi91v7rRO6Z0t6ct2KlQz7+vsPrxjGXdC8n0BcyC9B6Or+uowo7Oqr9i41Nfi+zO9xejqu+O0dJ1+lvps6SMfrgkm7/ayWcOMpndfzpQrbDL129HLNrIl+BsWfdfdV6eWI7zpiZdzztjnfZQo/zrfzJE4ksfff2pkbZYm0rudkSTv7TBUYDkbpW+WoapbdtU4uvqCVpigPI/DNitGHb210fYTWy+YuNZ0rdueLfq2jPFA3nDjSDbU+ptd0lZnT+Z8OwIL5TobwEIZ70ADNEMtGIoqXz5HqajznadxEdP49IOVAW8/XXxSS4FyeRGl0aBePCxLhcC6xChabTmhN12/juKrXZe1KGwFkaMDrgCMoNclcEnqBrrXHXSrgj+RotDm6kOLpemsPlcJT/4H&amp;lt;/diagram&amp;gt;&amp;lt;/mxfile&amp;gt;&#34; onclick=&#34;(function(svg){var src=window.event.target||window.event.srcElement;while (src!=null&amp;amp;&amp;amp;src.nodeName.toLowerCase()!=&#39;a&#39;){src=src.parentNode;}if(src==null){if(svg.wnd!=null&amp;amp;&amp;amp;!svg.wnd.closed){svg.wnd.focus();}else{var r=function(evt){if(evt.data==&#39;ready&#39;&amp;amp;&amp;amp;evt.source==svg.wnd){svg.wnd.postMessage(decodeURIComponent(svg.getAttribute(&#39;content&#39;)),&#39;*&#39;);window.removeEventListener(&#39;message&#39;,r);}};window.addEventListener(&#39;message&#39;,r);svg.wnd=window.open(&#39;https://app.diagrams.net/?client=1&amp;amp;lightbox=1&amp;amp;edit=_blank&#39;);}}})(this);&#34; style=&#34;cursor:pointer;max-width:100%;max-height:791px;&#34;&gt;&lt;defs/&gt;&lt;g&gt;&lt;path d=&#34;M 120 190 L 159.88 190&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 168.88 190 L 159.88 194.5 L 159.88 185.5 Z&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 280 190 L 353.63 190&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 358.88 190 L 351.88 193.5 L 353.63 190 L 351.88 186.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;170&#34; y=&#34;160&#34; width=&#34;110&#34; height=&#34;60&#34; rx=&#34;9&#34; ry=&#34;9&#34; fill=&#34;#dae8fc&#34; stroke=&#34;#6c8ebf&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 108px; height: 1px; padding-top: 190px; margin-left: 171px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Exit T-Intersection&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;225&#34; y=&#34;194&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Exit T-Intersection&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 415 160 L 415 86.37&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 81.12 L 418.5 88.12 L 415 86.37 L 411.5 88.12 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 220 L 415 240 L 415 230 L 415 243.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 248.88 L 411.5 241.88 L 415 243.63 L 418.5 241.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;360&#34; y=&#34;160&#34; width=&#34;110&#34; height=&#34;60&#34; rx=&#34;9&#34; ry=&#34;9&#34; fill=&#34;#dae8fc&#34; stroke=&#34;#6c8ebf&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 108px; height: 1px; padding-top: 190px; margin-left: 361px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Right Edge Follow Perimeter&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;194&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Right Edge Follow&amp;hellip;&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 350 40 L 320 40 L 320 180 L 353.63 180&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 358.88 180 L 351.88 183.5 L 353.63 180 L 351.88 176.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 31px; margin-left: 331px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 11px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; background-color: #ffffff; white-space: nowrap; &#34;&gt;No&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;331&#34; y=&#34;34&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;11px&#34; text-anchor=&#34;middle&#34;&gt;No&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 480 40 L 500 40 L 490 40 L 503.63 40&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 508.88 40 L 501.88 43.5 L 503.63 40 L 501.88 36.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 0 L 480 40 L 415 80 L 350 40 Z&#34; fill=&#34;#fff2cc&#34; stroke=&#34;#d6b656&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 128px; height: 1px; padding-top: 40px; margin-left: 351px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;See Pedestrian?&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;44&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;See Pedestrian?&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 570 70 L 570 175 L 476.37 175&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 471.12 175 L 478.12 171.5 L 476.37 175 L 478.12 178.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;510&#34; y=&#34;10&#34; width=&#34;120&#34; height=&#34;60&#34; rx=&#34;9&#34; ry=&#34;9&#34; fill=&#34;#e1d5e7&#34; stroke=&#34;#9673a6&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 118px; height: 1px; padding-top: 40px; margin-left: 511px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Wait Untill Crossed&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;570&#34; y=&#34;44&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Wait Untill Crossed&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 570 70 L 570 70&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 570 70 L 570 70 L 570 70 L 570 70 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;470&#34; y=&#34;20&#34; width=&#34;40&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 30px; margin-left: 490px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;Yes&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;490&#34; y=&#34;34&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Yes&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 490 295 L 570 295 L 570 205 L 476.37 205&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 471.12 205 L 478.12 201.5 L 476.37 205 L 478.12 208.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 340 L 415 373.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 378.88 L 411.5 371.88 L 415 373.63 L 418.5 371.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 250 L 490 295 L 415 340 L 340 295 Z&#34; fill=&#34;#fff2cc&#34; stroke=&#34;#d6b656&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 148px; height: 1px; padding-top: 295px; margin-left: 341px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Collected  Last &lt;br /&gt;Perimiter License &lt;br /&gt;Plate?&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;299&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Collected  Last&amp;hellip;&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;500&#34; y=&#34;278&#34; width=&#34;30&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 288px; margin-left: 515px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;No&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;515&#34; y=&#34;292&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;No&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;380&#34; y=&#34;350&#34; width=&#34;40&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 360px; margin-left: 400px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;Yes&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;400&#34; y=&#34;364&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Yes&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 415 440 L 415 460 L 415 440 L 415 453.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 458.88 L 411.5 451.88 L 415 453.63 L 418.5 451.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 355 410 L 265 410 L 265 453.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; stroke-dasharray=&#34;3 3&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 265 458.88 L 261.5 451.88 L 265 453.63 L 268.5 451.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;355&#34; y=&#34;380&#34; width=&#34;120&#34; height=&#34;60&#34; rx=&#34;9&#34; ry=&#34;9&#34; fill=&#34;#dae8fc&#34; stroke=&#34;#6c8ebf&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 118px; height: 1px; padding-top: 410px; margin-left: 356px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Left Edge Follow&lt;br /&gt;(Enter Inner Track)&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;414&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Left Edge Follow&amp;hellip;&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 455 500 L 510 500 L 510 410 L 481.37 410&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 476.12 410 L 483.12 406.5 L 481.37 410 L 483.12 413.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 540 L 415 573.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 578.88 L 411.5 571.88 L 415 573.63 L 418.5 571.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 460 L 455 500 L 415 540 L 375 500 Z&#34; fill=&#34;#fff2cc&#34; stroke=&#34;#d6b656&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 78px; height: 1px; padding-top: 500px; margin-left: 376px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;In Inner&lt;br /&gt;Ring?&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;504&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;In Inner&amp;hellip;&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;462&#34; y=&#34;482&#34; width=&#34;30&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 492px; margin-left: 477px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;No&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;477&#34; y=&#34;496&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;No&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 415 610 L 415 630 L 415 620 L 415 633.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 638.88 L 411.5 631.88 L 415 633.63 L 418.5 631.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 355 587.5 L 265 587.5 L 265 546.37&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 265 541.12 L 268.5 548.12 L 265 546.37 L 261.5 548.12 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;355&#34; y=&#34;580&#34; width=&#34;120&#34; height=&#34;30&#34; rx=&#34;4.5&#34; ry=&#34;4.5&#34; fill=&#34;#dae8fc&#34; stroke=&#34;#6c8ebf&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 118px; height: 1px; padding-top: 595px; margin-left: 356px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Follow Road CM&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;599&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Follow Road CM&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;384&#34; y=&#34;550&#34; width=&#34;40&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 560px; margin-left: 404px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;Yes&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;404&#34; y=&#34;564&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Yes&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 415 730 L 415 750 L 415 740 L 415 753.63&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 415 758.88 L 411.5 751.88 L 415 753.63 L 418.5 751.88 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 480 685 L 510 685 L 510 595 L 481.37 595&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 476.12 595 L 483.12 591.5 L 481.37 595 L 483.12 598.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 415 640 L 480 685 L 415 730 L 350 685 Z&#34; fill=&#34;#fff2cc&#34; stroke=&#34;#d6b656&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 128px; height: 1px; padding-top: 685px; margin-left: 351px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Collected  Last &lt;br /&gt;Perimiter License &lt;br /&gt;Plate?&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;689&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Collected  Last&amp;hellip;&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 392.5 760 L 437.5 760 L 460 775 L 437.5 790 L 392.5 790 L 370 775 Z&#34; fill=&#34;#f8cecc&#34; stroke=&#34;#b85450&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 88px; height: 1px; padding-top: 775px; margin-left: 371px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Finished&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;415&#34; y=&#34;779&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Finished&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;479&#34; y=&#34;661&#34; width=&#34;30&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 671px; margin-left: 494px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;No&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;494&#34; y=&#34;675&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;No&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;380&#34; y=&#34;730&#34; width=&#34;40&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 740px; margin-left: 400px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;Yes&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;400&#34; y=&#34;744&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Yes&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 220 500 L 200 500 L 200 487.5 L 186.37 487.5&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; stroke-dasharray=&#34;3 3&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 181.12 487.5 L 188.12 484 L 186.37 487.5 L 188.12 491 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 265 460 L 310 500 L 265 540 L 220 500 Z&#34; fill=&#34;#fff2cc&#34; stroke=&#34;#d6b656&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 88px; height: 1px; padding-top: 500px; margin-left: 221px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Truck Close?&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;265&#34; y=&#34;504&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Truck Close?&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 130 475 L 130 395 L 348.63 395&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; stroke-dasharray=&#34;3 3&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 353.88 395 L 346.88 398.5 L 348.63 395 L 346.88 391.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 130 525 L 130 600 L 348.63 600&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 353.88 600 L 346.88 603.5 L 348.63 600 L 346.88 596.5 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;rect x=&#34;80&#34; y=&#34;475&#34; width=&#34;100&#34; height=&#34;50&#34; rx=&#34;7.5&#34; ry=&#34;7.5&#34; fill=&#34;#e1d5e7&#34; stroke=&#34;#9673a6&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 98px; height: 1px; padding-top: 500px; margin-left: 81px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;Wait Untill Gone&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;130&#34; y=&#34;504&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Wait Untill Gone&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;rect x=&#34;194&#34; y=&#34;475&#34; width=&#34;40&#34; height=&#34;20&#34; fill=&#34;none&#34; stroke=&#34;none&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 1px; height: 1px; padding-top: 485px; margin-left: 214px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: nowrap; &#34;&gt;Yes&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;214&#34; y=&#34;489&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Yes&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;path d=&#34;M 220 500 L 210 500 Q 200 500 200 506.25 L 200 509.38 Q 200 512.5 193.18 512.5 L 186.37 512.5&#34; fill=&#34;none&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;stroke&#34;/&gt;&lt;path d=&#34;M 181.12 512.5 L 188.12 509 L 186.37 512.5 L 188.12 516 Z&#34; fill=&#34;#000000&#34; stroke=&#34;#000000&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;path d=&#34;M 30 150 L 90 150 L 120 190 L 90 230 L 30 230 L 0 190 Z&#34; fill=&#34;#d5e8d4&#34; stroke=&#34;#82b366&#34; stroke-miterlimit=&#34;10&#34; pointer-events=&#34;all&#34;/&gt;&lt;g transform=&#34;translate(-0.5 -0.5)&#34;&gt;&lt;switch&gt;&lt;foreignObject style=&#34;overflow: visible; text-align: left;&#34; pointer-events=&#34;none&#34; width=&#34;100%&#34; height=&#34;100%&#34; requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;&gt;&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34; style=&#34;display: flex; align-items: unsafe center; justify-content: unsafe center; width: 118px; height: 1px; padding-top: 190px; margin-left: 1px;&#34;&gt;&lt;div style=&#34;box-sizing: border-box; font-size: 0; text-align: center; &#34;&gt;&lt;div style=&#34;display: inline-block; font-size: 12px; font-family: Helvetica; color: #000000; line-height: 1.2; pointer-events: all; white-space: normal; word-wrap: normal; &#34;&gt;&lt;span&gt;Initialize YOLO&lt;br /&gt; and License Plate Reader&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/foreignObject&gt;&lt;text x=&#34;60&#34; y=&#34;194&#34; fill=&#34;#000000&#34; font-family=&#34;Helvetica&#34; font-size=&#34;12px&#34; text-anchor=&#34;middle&#34;&gt;Initialize YOLO&amp;hellip;&lt;/text&gt;&lt;/switch&gt;&lt;/g&gt;&lt;/g&gt;&lt;switch&gt;&lt;g requiredFeatures=&#34;http://www.w3.org/TR/SVG11/feature#Extensibility&#34;/&gt;&lt;a transform=&#34;translate(0,-5)&#34; xlink:href=&#34;https://desk.draw.io/support/solutions/articles/16000042487&#34; target=&#34;_blank&#34;&gt;&lt;text text-anchor=&#34;middle&#34; font-size=&#34;10px&#34; x=&#34;50%&#34; y=&#34;100%&#34;&gt;Viewer does not support full SVG 1.1&lt;/text&gt;&lt;/a&gt;&lt;/switch&gt;&lt;/svg&gt;&lt;/p&gt;
+&lt;h3 id=&#34;position-and-license-plate-recognition&#34;&gt;Position and License Plate Recognition&lt;/h3&gt;
+&lt;h4 id=&#34;license-plates&#34;&gt;License Plates&lt;/h4&gt;
+&lt;p&gt;The algorithm takes cropped license plate images based on bounding box predictions from YOLO and does some preprocessing before passing them into a CNN for character recognition.&lt;/p&gt;
+&lt;p&gt;The preprocessing algorithm takes bounding boxes from &lt;em&gt;/yolo&lt;/em&gt; with the license plate class and crops the raw camera image to size. We obtain potential characters using and adaptive threshold followed by cv2&amp;rsquo;s &lt;code&gt;findContours()&lt;/code&gt; function. After some filtering based on size and aspect ratio, we end up with four predictions. The ordering of characters is determined based on the x position of the bounding box prediction.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;lp_recon.png&#39; alt=&#39;license plate recognition&#39; width=&#34;400&#34;/&gt;
+    &lt;figcaption&gt;License Plate Recognition - After adaptive thresholding, findContours yields potential character candidates that are filtered producing the final 4 characters seen.&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h4 id=&#34;position&#34;&gt;Position&lt;/h4&gt;
+&lt;p&gt;To read the positions of each license plate, a region of interest is defined based on the bounding box around the license plate from YOLO. To perform character recognition, the CNN is used again, trained on data collected from allowing the robot to do several laps around the perimeter.&lt;/p&gt;
+&lt;figure&gt;
+    &lt;img src=&#39;positions.jpg&#39; alt=&#39;position recognition&#39; width=&#34;400&#34;/&gt;
+    &lt;figcaption&gt;Examples of positions after cropping to ROI&lt;/figcaption&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;results&#34;&gt;Results&lt;/h2&gt;
+&lt;p&gt;A total of 20 teams competed in this competition. This model was one of four to receive a perfect score of 57 points.&lt;/p&gt;
+
+
+
+
+  
+  
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+&lt;video controls &gt;
+  &lt;source src=&#34;https://Fquico1999.github.io/img/enph353_outer_ring.mp4&#34; type=&#34;video/mp4&#34;&gt;
+&lt;/video&gt;
+&lt;p&gt;The video above shows the robot completing the outer ring. The Gazebo simulation is shown on the right, the scoring server is on the bottom left, and the terminal displaying information about the robot is on the upper left.&lt;/p&gt;
+</description>
+    </item>
+    
+    <item>
+      <title>Artifact Removal &amp; Biomarker Segmentation</title>
+      <link>https://Fquico1999.github.io/project/eece571t/</link>
+      <pubDate>Fri, 05 Jun 2020 15:17:50 -0700</pubDate>
+      <guid>https://Fquico1999.github.io/project/eece571t/</guid>
+      <description>&lt;h2 id=&#34;overview&#34;&gt;Overview&lt;/h2&gt;
+&lt;p&gt;EECE571T - Advanced Machine Learning Tools, is a graduate level machine learning course I took at UBC. A large part of this course was the final project for which I choose to do artifact removal and biomarker segmentation of FOXP3+ biomarkers for follicular lymphoma TMA cores in conjunction with the British Columbia Cancer Agency.&lt;/p&gt;
+&lt;p&gt;The purpose of the project was to introduce a quantitative method of evaluating FOXP3+ biomarker counts in TMA cores, and improve upon industry standard - usually estimated by eye by a Pathologist or by the software Aperio.&lt;/p&gt;
+&lt;p&gt;One major obstacle was the frequent presence of artifacts in the cores which would completely overpower the actual positive biomarkers themselves. These had to be ignored by Pathologists, and removed by hand in Aperio.&lt;/p&gt;
+&lt;p&gt;As such, the proposed framework is broken into artifact segmentation, to segment and remove artifacts, and marker segmentation to identify the biomarkers. In both cases, the input images were very large ($2886\times 2886$), so to preserve global and local structure, patches were made and fed into UNets to produce binary masks for both artifacts and markers. These methods and results are discussed in detail in the final report paper.&lt;/p&gt;
+&lt;p&gt;&lt;a href=&#34;https://Fquico1999.github.io/files/eece571t_paper.pdf&#34;&gt;See the paper here&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

@@ -10,7 +10,7 @@ authors:
 superuser: true
 
 # Role/position
-role: Engineering Physics Student
+role: Data Scientist @ BlackBerry
 
 # Organizations/Affiliations
 organizations:
@@ -22,6 +22,7 @@ bio: Interested in solving real-world problems using Machine Learning techniques
 
 interests:
 - Machine Learning
+- Differential Privacy
 - Computer Vision
 - Data Analysis
 
@@ -29,7 +30,7 @@ education:
   courses:
   - course: BASc in Engineering Physics
     institution: University of British Columbia
-    year: 2017 - 2022
+    year: 2017 - 2023
 
 # Social/Academic Networking
 # For available icons, see: https://sourcethemes.com/academic/docs/page-builder/#icons
@@ -61,5 +62,6 @@ user_groups:
 - Visitors
 ---
 
-I'm Francisco, a 4th year Engineering Physics student at UBC who is passionate about tackling real world problems with the exciting potential of Machine Learning. 
+I'm Francisco, a Data Scientist at BlackBerry who is passionate about tackling real world problems with the exciting potential of Machine Learning. Currently, my interests are in model security and differential privacy, as well as anomaly-based IDS.
+
 While you're here, check out some of my projects, view my resumé, or drop me a line below.

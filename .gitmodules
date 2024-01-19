@@ -2,7 +2,3 @@
 	path = public
 	url = https://github.com/Fquico1999/Fquico1999.github.io.git
 	branch = master
-[submodule "public/Fquico1999.github.io"]
-	path = public/Fquico1999.github.io
-	url = https://github.com/Fquico1999/Fquico1999.github.io.git
-	branch = master
